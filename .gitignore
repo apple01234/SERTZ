@@ -1,0 +1,38 @@
+# ── 로그 / 빌드 산출물 ──
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ── 툴킷 (자체 .gitignore 있음 — 하위 폴더 규칙 자동 적용) ──
+RPG-Maker-AI-Toolkit-Multi-Platform/node_modules/
+RPG-Maker-AI-Toolkit-Multi-Platform/dist/
+RPG-Maker-AI-Toolkit-Multi-Platform/.env
+RPG-Maker-AI-Toolkit-Multi-Platform/backup/
+RPG-Maker-AI-Toolkit-Multi-Platform/backups/
+RPG-Maker-AI-Toolkit-Multi-Platform/dev/
+RPG-Maker-AI-Toolkit-Multi-Platform/opencode.json
+RPG-Maker-AI-Toolkit-Multi-Platform/CLAUDE.md
+
+# ── 백업 / 임시 ──
+backups/
+*.bak
+*.tmp
+
+# ── OS / IDE ──
+Thumbs.db
+.DS_Store
+.vscode/
+.idea/
+
+# ── RGSS 스크립트 에디터 캐시 ──
+.rgss-script-editor/
+
+# ── MCP 로컬 상태 ──
+mcp-changes.json
+rgss-compiler.json
+
+# ── 런타임 사용자 데이터 (세이브 등) ──
+save/
+*.rxdata
