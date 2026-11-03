@@ -4884,3 +4884,4 @@ Stage Summary:
 - 완료: SERTZ/main에 소스 커밋 727cab7을 업로드했고 원격 SHA 일치를 확인했다. 원래 저장소는 shallow clone이므로 대상 초기 main을 부모로 하는 동일 트리 스냅샷을 사용해 이력 단절 없이 fast-forward 전달했다. 기존 소스 브랜치/이력도 로컬에 보존했다.
 - fp 팀에 prj_iEfvcVgW790vIycqJBcix7T1R9wR을 생성하고 선별 추적 파일 848개를 업로드해 프로덕션 dpl_FnKCF5YjC6XFbCyqstUcMr8QgGzf의 READY를 API로 확인했다. 이후 조회된 프로젝트명은 sertz이며 Git 연결은 SERTZ/main이다. 사용자/외부에서 바뀐 프로젝트명과 연결은 덮어쓰지 않았다.
 - https://certz-memory-oath.vercel.app 공개 접속과 게임 에셋 113개 HTTP 200, 실제 배포 주소의 Chromium 전체 검사(첫 장/저장 복원/보스/모바일/저장 복구)를 통과했다. 협동 검사의 서버/계정 HTTP는 기존 로컬 테스트 구성이며 운영 서버 배포로 표시하지 않는다. 접속/배포/운영 한계를 DEPLOYMENT.md에 기록했다.
+- 최종 공개 도메인은 프로젝트 설정에서 sertz2.vercel.app로 변경되어 이 주소로 문서를 갱신했다. 문서 커밋 4a94b0d의 SERTZ/main 푸시가 fp/sertz의 새 production 배포 dpl_64iPHqsniQDo9ipscmz4XU8wM5hx를 만들고 GitHub Vercel success로 완료되는 것을 확인했다. 게임 로직은 그대로이며 최종 도메인의 캐릭터 생성·대화·저장 복원 브라우저 검사도 통과했다.

@@ -1,6 +1,6 @@
 # SERTZ — 기억의 서약
 
-게임 플레이: https://certz-memory-oath.vercel.app
+게임 플레이: https://sertz2.vercel.app
 
 소스 저장소: https://github.com/apple01234/SERTZ
 
