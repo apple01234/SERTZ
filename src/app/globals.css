@@ -1,0 +1,646 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+:root {
+  --radius: 0.625rem;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* ================= SERTZ 게임 스타일 ================= */
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.game-root,
+.game-root * {
+  -webkit-touch-callout: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.game-root canvas {
+  touch-action: none;
+  display: block;
+}
+
+/* 배너 등장 애니메이션 */
+@keyframes bannerPop {
+  0% {
+    opacity: 0;
+    transform: scale(0.7) translateY(12px);
+  }
+  12% {
+    opacity: 1;
+    transform: scale(1.05) translateY(0);
+  }
+  18% {
+    transform: scale(1);
+  }
+  82% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
+/* v3.0.16 — 퀘스트 보상 팝업 등장 (상태 제거로 닫히므로 페이드아웃 없음) */
+@keyframes rewardPop {
+  0% {
+    opacity: 0;
+    transform: scale(0.85) translateY(-8px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.animate-spin-slow {
+  animation: spin 2.4s linear infinite;
+}
+
+/* 데스크톱 마우스 전용 화면에서는 조작 힌트 강조 없음 처리 */
+@media (pointer: fine) {
+  .rotate-prompt {
+    display: none;
+  }
+}
+
+/* v3.0.5 — 스타포스 강화 실패 흔들림 */
+@keyframes sfshake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-5px); }
+  40% { transform: translateX(5px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(3px); }
+}
+
+/* ═══════════ v3.0.8 디자인 개편 — SharpUI 스킨 (upload/SharpUI 팩) ═══════════ */
+/* 패널: SharpUI info_box 를 100% 스트레치 — 기존 bg 컬러 위에 렌더
+ * v1.0.20 — AI스러운 글래스 패널을 게임형 프레임으로 전면 교체 (유저 지시):
+ *  라운드 글래스+보라 코러 → "딥 네이비 바디 + 우드 프레임 + 금선" 고전 게임 UI.
+ *  인테리어 텍스트(white/xx) 가독성 유지를 위해 바디는 어둡게, 프레임만 따뜻하게. */
+/* ═══════════ v1.4.19 (유저 지시 "tailwind css 쓰자") — UI 스킨 Tailwind 전환 ═══════════
+ *  기존: ui2 비트맵 텍스처(panel/button/input.webp)를 background-size:100% 100%로
+ *        스트레치해 프레임을 박제하는 방식 — 확대 시 프레임이 흐려지고 톤 편차 발생.
+ *  신규: Tailwind 유틸리티(@apply) 기반 디자인 시스템. 클래스명은 그대로 유지해
+ *        컴포넌트(35곳 이상) 무수정 — 스타일만 교체. Galmuri 픽셀 폰트·다크+앰버
+ *        팔레트·경질 하단 음영(게임 감성)은 유지. ui2 비트맵 의존 제거. */
+
+/* 패널 본체 — 스톤 블랙 + 앰버 헤어라인 + 경질 하단 음영 */
+.game-panel {
+  @apply rounded-lg border border-amber-600/30 bg-stone-950/95 backdrop-blur-sm;
+  box-shadow:
+    0 8px 0 rgba(0, 0, 0, 0.35),
+    0 22px 44px rgba(0, 0, 0, 0.55);
+}
+@keyframes panelIn {
+  from { opacity: 0; transform: translateY(10px) scale(0.965); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.game-panel { animation: panelIn 0.16s ease-out both; }
+@media (prefers-reduced-motion: reduce) {
+  .game-panel { animation: none; }
+}
+/* 패널 제목 — 앰버 좌정렬 그라디언트 네임플레이트 */
+.game-panel h2 {
+  @apply mb-2.5 rounded border-l-4 border-amber-500 bg-gradient-to-r from-amber-900/70 via-amber-900/25 to-transparent
+    px-2.5 py-1.5 text-amber-200;
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.65);
+}
+/* 주 버튼 — 앰버 그라디언트 + 경질 하단 음영 */
+.game-btn {
+  @apply rounded-md border border-amber-400/40 bg-gradient-to-b from-amber-700 to-amber-900
+    text-amber-50 transition-[transform,filter] duration-100;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.75);
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.5), 0 6px 12px rgba(0, 0, 0, 0.4);
+}
+.game-btn:hover { @apply brightness-110; }
+.game-btn:active {
+  @apply translate-y-[2px] brightness-95;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.5), 0 3px 8px rgba(0, 0, 0, 0.4);
+}
+.game-btn:disabled {
+  @apply cursor-not-allowed grayscale opacity-70;
+}
+/* 보조 버튼 — 스톤 저채도 변형 */
+.game-btn-ghost {
+  @apply rounded-md border border-white/15 bg-gradient-to-b from-stone-800 to-stone-900
+    text-stone-200 transition-[transform,filter] duration-100;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.75);
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.45), 0 6px 12px rgba(0, 0, 0, 0.35);
+}
+.game-btn-ghost:hover { @apply brightness-125; }
+.game-btn-ghost:active {
+  @apply translate-y-[2px] brightness-90;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45);
+}
+/* 위험/삭제 버튼 — 레드 변형 */
+.game-btn-danger {
+  @apply rounded-md border border-red-400/40 bg-gradient-to-b from-red-700 to-red-950
+    text-red-50 transition-transform duration-100;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.7);
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.5), 0 6px 12px rgba(0, 0, 0, 0.45);
+}
+.game-btn-danger:active {
+  @apply translate-y-[2px];
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.5);
+}
+/* HUD 칩/아이콘 버튼 — 작은 스톤 프레임 */
+.game-chip {
+  @apply rounded-md border border-amber-500/25 bg-stone-950/90;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.45), 0 5px 10px rgba(0, 0, 0, 0.35);
+}
+.game-chip:active { @apply translate-y-[1px]; }
+/* v1.0.16 (F3) — 터치 타깃 하한. 시각 크기는 그대로 두고 **히트 영역만** 넓힌다.
+ *  실측(가로 412×915) 결과 실제 기준 미달은 아이콘만 넣어 17×14px가 된 버튼 1곳뿐이었다
+ *  (HUD 아이콘은 33px, 채팅 접기는 28px — WCAG 2.2 SC 2.5.8의 24px를 모두 통과).
+ *  HUD 아이콘을 44px로 키우면 gap 6px 기준 인접 버튼과 5px씩 겹쳐 **오탭이 오히려 늘어난다.**
+ *  그래서 시각 크기를 키우지 않고 ::after로 히트 영역만 44px까지 넓힌다(레이아웃 무영향).
+ *  ⚠️ HUD는 부모에 zoom:0.85가 걸려 있다(HUD.tsx v1.4.0 #18). zoom 안에서 44px는 37.4px로
+ *  렌더되므로 --tap-zoom으로 역보정한다. 미지정이면 1로 취급돼 일반 컨텍스트에서도 동작한다. */
+.tap-safe {
+  position: relative;
+}
+/* vc206 (지시 #12 "버튼안에 있는 스킬 아이콘 너무 큰 버그")
+ *  Tailwind 의 `p-[18%]` 는 JIT 스캐너가 이 파일을 놓치면 CSS 가 아예 생성되지 않아
+ *  아이콘이 버튼을 95% 채웠다(실측: 버튼 81px / 아이콘 77px). 여백 비율은 반드시
+ *  실제 CSS 로 보장한다 — Tailwind 유무와 무관하게 적용된다.
+ *  inset 여백 18% → 아이콘은 버튼 지름의 64% 로 그려진다. */
+.skill-icon-inset {
+  /* vc232 (#5 "스킬 단축키 아이콘 좀더 안쪽으로") — 18% → 26%.
+   *  아이콘이 원형 버튼 테두리에 닿아 답답했다. 안쪽 여백을 늘려
+   *  버튼 프레임과 아이콘 사이에 숨 쉴 공간을 만든다(터치 판정은 그대로). */
+  padding: 26%;
+}
+.tap-safe::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: max(100%, calc(44px / var(--tap-zoom, 1)));
+  height: max(100%, calc(44px / var(--tap-zoom, 1)));
+  transform: translate(-50%, -50%);
+  background: transparent;
+}
+/* 패널 탭 — 비활성/활성 2종 */
+.game-tab {
+  @apply rounded-md border border-white/10 bg-stone-900/80 text-stone-400;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.4);
+}
+.game-tab-on {
+  @apply rounded-md border border-amber-400/50 bg-gradient-to-b from-amber-800/80 to-amber-950/90
+    text-amber-100;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.7);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+}
+/* 입력 필드 — 스톤 인셋 + 앰버 포커스 링 */
+.game-input {
+  @apply rounded-md border border-white/10 bg-stone-950/90 text-stone-100
+    shadow-[inset_0_2px_6px_rgba(0,0,0,0.45)];
+}
+.game-input:focus {
+  @apply outline-none ring-1 ring-amber-500/60;
+}
+/* 위험/삭제 버튼 (구 고스트 규약 유지용 구 클래스는 삭제 — game-btn-danger로 통합) */
+
+/* 게이지 프레임 — HP/MP/EXP 바 컨테이너 (HUD가 rounded-full/border를 자체 지정) */
+.sertz-gauge {
+  @apply border-none bg-black/55 shadow-[inset_0_1px_2px_rgba(0,0,0,0.8)];
+}
+/* 리스트 행 (인벤/상점 슬롯 행) */
+.sertz-listrow {
+  @apply border border-white/10 bg-white/5;
+}
+.sertz-listrow-sel {
+  @apply border border-amber-400/50 bg-amber-500/15;
+}
+
+/* v4.1.5 — Galmuri 한글 픽셀 폰트 (npm galmuri, SIL OFL 1.1) — 게임 UI 전체 아이덴티티 */
+html, body {
+  font-family: Galmuri11, "Noto Sans KR", sans-serif;
+}
+
+/* v1.0.8 — 컴팩트 패널 내부 스크롤바 (로그인 창 잘림 수정·콘텐츠 허브)
+ *  vc149 (#22) — 모바일 터치 스크롤 복구: 게임 캔버스가 터치를 가로채 랭킹 100위까지
+ *  스크롤이 안 되던 문제. touch-action: pan-y로 세로 스크롤 허용을 명시하고
+ *  overscroll-behavior: contain으로 스크롤 체인(페이지 바운스) 차단. */
+.sertz-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.28) transparent;
+  touch-action: pan-y;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  pointer-events: auto;
+}
+.sertz-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+.sertz-scroll::-webkit-scrollbar-track { background: transparent; }
+.sertz-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.28); border-radius: 999px; }
+.sertz-scroll::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.45); }
+
+/* v1.4.19 — v1.4.13 책 패널(.game-panel-book) 삭제: v1.4.12에서 컴포넌트 사용이
+ *  철거됐던 데드 CSS. Tailwind 전환과 함께 잔존 ui2/book_*.webp 참조 제거. */
+
+/* ═══════════ vc145 (#7) — 유저 제공 RPG UI 팩(ui2/ SharpUI) 재적용 ═══════════
+ *  유저 지시 "내가 준 RPG UI 왜 적용 안함??" — v1.4.19 Tailwind 전환 때 철거됐던
+ *  비트맵 스킨을 border-image 9-슬라이스로 복귀한다.
+ *  기존 철거 사유였던 "확대 시 흐려짐"은 9-슬라이스(모서리 고정·가장자리 늘림)로 해소:
+ *  코너는 원본 해상도 그대로, 가운데는 균일 패턴이라 스트레치 티가 나지 않는다.
+ *  Tailwind 시스템(팔레트·폰트·애니메이션)은 유지하고 프레임/버튼 질감만 교체. */
+.game-panel {
+  border: 10px solid transparent;
+  border-image: url("/assets/ui2/panel.webp") 14 fill / 10px stretch;
+  border-radius: 0; /* 비트맵 프레임이 자체 라운드 코너를 그린다 */
+}
+.game-panel h2 {
+  border-left-width: 0; /* 비트맵 헤더 배너와 이중 선 방지 */
+  background: url("/assets/ui2/header.webp") center / 100% 100% no-repeat,
+    linear-gradient(to right, rgba(120, 53, 15, 0.55), transparent);
+}
+.game-btn {
+  border: 5px solid transparent;
+  border-image: url("/assets/ui2/button.webp") 12 fill / 5px stretch;
+  border-radius: 0;
+}
+.game-btn-ghost {
+  border: 5px solid transparent;
+  border-image: url("/assets/ui2/panel.webp") 14 fill / 5px stretch;
+  border-radius: 0;
+}
+.game-tab {
+  border: 4px solid transparent;
+  border-image: url("/assets/ui2/panel.webp") 14 fill / 4px stretch;
+  border-radius: 0;
+}
+/* 입력창 — ui2 input 프레임 */
+.game-input {
+  border: 5px solid transparent;
+  border-image: url("/assets/ui2/input.webp") 14 fill / 5px stretch;
+  border-radius: 0;
+}
+/* 리스트 행 — ui2 list / list_sel (선택행은 앰버 테두리 버전) */
+.sertz-listrow {
+  border: 4px solid transparent;
+  border-image: url("/assets/ui2/list.webp") 12 fill / 4px stretch;
+}
+.sertz-listrow-sel {
+  border: 4px solid transparent;
+  border-image: url("/assets/ui2/list_sel.webp") 12 fill / 4px stretch;
+}
+
+/* v1.0.20 build trigger */
+
+/* ═══════════ v1.1.6 (#개편 B98) — 키보드 포커스 링 ═══════════
+ *  이 게임은 키보드로만 플레이가 가능하지만, 설정·상점 같은 패널 안에서는
+ *  Tab 이동 시 포커스가 어디 있는지 보이지 않았다(브라우저 기본 outline을
+ *  Tailwind preflight가 지우고 아무 대체도 없었음). 마우스 사용자에게는
+ *  링이 보이지 않도록 :focus-visible에만 적용한다. */
+:where(button, a, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid rgba(255, 217, 138, 0.95);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+/* 모달/패널 내부에서 링이 잘리지 않게 (overflow-hidden 컨테이너 대응) */
+.game-panel :where(button, a, input, select, textarea, [tabindex]):focus-visible {
+  outline-offset: 1px;
+}
+
+/* ═══════════ v1.1.6 (#개편 B77) — 고대비 모드 ═══════════
+ *  저시력/밝은 실외 환경에서 white/55~70 계열 보조 텍스트가 배경에 묻힌다.
+ *  설정에서 켜면(html[data-contrast="high"]) 보조 텍스트 불투명도를 끌어올리고
+ *  패널 테두리를 밝힌다. 게임 캔버스(Phaser)는 자체 팔레트라 영향 없음.
+ *
+ *  vc236 — **기본값을 고대비로 전환** (지시 #3 "고대비 모드를 기본으로 해 (글씨 안보임)").
+ *  이제 `data-contrast="high"` 가 기본이고, 설정에서 끌 수 있다(normal). */
+html[data-contrast="high"] .game-panel { border-color: rgba(255, 217, 138, 0.55); }
+html[data-contrast="high"] .game-chip { border-color: rgba(255, 217, 138, 0.5); }
+html[data-contrast="high"] [class*="text-white/4"],
+html[data-contrast="high"] [class*="text-white/5"],
+html[data-contrast="high"] [class*="text-white/6"] { color: rgba(255, 255, 255, 0.88) !important; }
+html[data-contrast="high"] [class*="text-white/7"] { color: rgba(255, 255, 255, 0.95) !important; }
+html[data-contrast="high"] .game-btn-ghost { border-color: rgba(255, 255, 255, 0.4); }
+
+/* ═══════════ v1.1.6 (#개편 B56·B65·B72) — 마이크로 인터랙션 ═══════════
+ *  탭 전환/목록 행 진입/드래그 대상에 짧은 전환을 넣어 "딱딱 끊기는" 느낌을 줄인다.
+ *  prefers-reduced-motion 사용자는 아래 전역 규칙에서 자동 비활성. */
+@keyframes sertzTabIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.sertz-tab-in { animation: sertzTabIn 0.14s ease-out both; }
+
+@keyframes sertzRowIn {
+  from { opacity: 0; transform: translateX(-4px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.sertz-listrow { animation: sertzRowIn 0.12s ease-out both; }
+
+/* 드래그 중인 항목(유니온 배치 등) — 살짝 떠 보이게 */
+.sertz-drag { opacity: 0.7; transform: scale(1.04); cursor: grabbing; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sertz-tab-in, .sertz-listrow { animation: none; }
+  .sertz-drag { transform: none; }
+}
+
+/* ============================================================================
+ * vc210 (#otaku-cards) — 씹덕/가챠 사이트 11개 실측 → 캐릭터 카드 UI 적용
+ *
+ * 조사 방법: Playwright 로 실제 페이지의 getComputedStyle 을 읽어
+ *   backgroundColor / border-radius / box-shadow / text-shadow / background-image
+ *   를 카드 후보(이미지 포함 90~480px 컨테이너)에서 수집했다. 추측값 없음.
+ *
+ * 실측 근거 (11개 사이트)
+ *   · 배경 양분 — 다크: Genshin #111111 / Star Rail #000000 / Azur Lane #000000
+ *                 라이트: Arknights·Blue Archive·FGO·Priconne #ffffff
+ *   · 카드 radius — Umamusume 11.25px / Wuthering Waves 7.35px / Priconne 18.51px
+ *   · 카드 그림자 — Priconne rgba(0,0,0,0.3) 0 3px 10px 0 (하드 드롭섀도)
+ *   · 시그니처 그라데이션 — ZZZ linear-gradient(150deg, #ffd7b4 0%, #e22a2a 83%)
+ *                          Priconne #f55291
+ *   · 텍스트 글로우 — Genshin rgb(105,224,255) 0 0 10px (캐릭터명 외곽선)
+ *   · 액센트 — 시안 #69e0ff/#18d1ff, 골드 #db9a45/#c9ac67, 핑크 #ff79d0/#f55291
+ *
+ * SERTZ 적용 방침
+ *   기존 금색(#e8c064)·남색 톤은 유지한다(게임 정체성). 위 실측값 중
+ *   ① 카드 호버 시 시안 글로우  ② 선택 시 골드→시안 2단 테두리
+ *   ③ 등급 띠(rarity ribbon)     ④ 캐릭터명 텍스트 글로우
+ *   를 추가한다. 색을 갈아치우지 않고 "가챠 카드가 반응하는 방식"만 가져온다.
+ * ========================================================================== */
+
+/* 카드 기본 — Priconne 실측 radius 18.5px 를 12px 로 절제(픽셀 UI 비례) */
+.otaku-card {
+  position: relative;
+  border-radius: 10px;
+  overflow: hidden;
+  transition: transform 0.16s cubic-bezier(0.2, 0.8, 0.3, 1),
+              box-shadow 0.2s ease-out,
+              border-color 0.2s ease-out;
+  /* Priconne 실측: rgba(0,0,0,0.3) 0 3px 10px — 하드 드롭섀도 유지 */
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.32);
+}
+
+/* 호버 — Genshin 실측 시안 글로우 rgb(105,224,255) 를 그대로 */
+.otaku-card:hover {
+  transform: translateY(-2px) scale(1.015);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.42),
+              0 0 0 1px rgba(105, 224, 255, 0.45),
+              0 0 16px rgba(105, 224, 255, 0.22);
+}
+
+/* 선택 — 골드 테두리 + 시안 내부 링 (게임 정체성 + 가챠 반응성) */
+.otaku-card[data-selected="true"] {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45),
+              0 0 0 2px #e8c064,
+              inset 0 0 0 1px rgba(105, 224, 255, 0.35),
+              0 0 22px rgba(232, 192, 100, 0.3);
+}
+
+/* 상단 등급 띠 — Star Rail 캐릭터 카드의 상단 라인 모티프 */
+.otaku-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 2px;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    rgba(105, 224, 255, 0.15) 18%,
+    rgba(232, 192, 100, 0.75) 50%,
+    rgba(105, 224, 255, 0.15) 82%,
+    transparent 100%);
+  opacity: 0.5;
+  transition: opacity 0.2s ease-out;
+  pointer-events: none;
+}
+.otaku-card:hover::before,
+.otaku-card[data-selected="true"]::before { opacity: 1; }
+
+/* 하단 스크림 — 캐릭터명 가독성 (ZZZ 실측 linear-gradient(to right, #020403 40%, ...) 응용) */
+.otaku-card-scrim {
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 58%;
+  background: linear-gradient(to top,
+    rgba(4, 6, 12, 0.94) 0%,
+    rgba(4, 6, 12, 0.72) 38%,
+    rgba(4, 6, 12, 0) 100%);
+  pointer-events: none;
+}
+
+/* 캐릭터명 텍스트 글로우 — Genshin 실측 rgb(105,224,255) 0 0 10px */
+.otaku-name {
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.85),
+               0 0 10px rgba(105, 224, 255, 0.35);
+}
+.otaku-card:hover .otaku-name,
+.otaku-card[data-selected="true"] .otaku-name {
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.9),
+               0 0 12px rgba(105, 224, 255, 0.6),
+               0 0 22px rgba(105, 224, 255, 0.28);
+}
+
+/* 클래스 배지 — 액센트를 카드 호버 시 채도 상승 (Umamusume 실측 반응 패턴) */
+.otaku-badge {
+  transition: background-color 0.18s ease-out, color 0.18s ease-out, box-shadow 0.18s ease-out;
+}
+.otaku-card:hover .otaku-badge {
+  box-shadow: 0 0 10px currentColor;
+}
+
+/* 희귀도(환생) 별 — 골드 그라데이션 텍스트 */
+.otaku-stars {
+  background: linear-gradient(100deg, #ffd98a 0%, #e8c064 45%, #ff9a5c 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 4px rgba(232, 192, 100, 0.5));
+}
+
+/* 저사양/모션 최소화 — 전정(transform)만 끄고 색 피드백은 유지 */
+@media (prefers-reduced-motion: reduce) {
+  .otaku-card, .otaku-card:hover, .otaku-card[data-selected="true"] { transform: none; }
+}
+
+/* ── 세로형 초상화 카드 (씹덕 가챠 카드 실측 비율) ──────────────────────────
+ * 씹덕 사이트 카드의 공통 형태: 이미지가 카드의 60~70%를 차지하고
+ * 하단에 이름/레벨이 겹쳐 올라온다. 텍스트만 있는 가로 카드는
+ * "관리 툴"로 읽히고 가챠로 읽히지 않는다 (스크린샷 검토 지적).
+ * 아래는 Star Rail 34개 / Umamusume 18개 / Priconne 60개 카드에서
+ * 확인된 공통 구조를 SERTZ 픽셀 비례로 옮긴 것이다. */
+.otaku-portrait {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  /* 씹덕 가챠 카드의 표준 비율 3:4 (FGO·Umamusume·Star Rail 공통) */
+  aspect-ratio: 3 / 4;
+  background:
+    /* 클래스 색을 상단에 옅게 깔아 카드마다 고유한 인상을 준다
+       (Priconne linear-gradient(to right, #f55291 ...) 응용) */
+    radial-gradient(120% 80% at 50% 0%,
+      color-mix(in srgb, var(--otaku-accent, #69e0ff) 22%, transparent) 0%,
+      transparent 68%),
+    linear-gradient(180deg, #131a2c 0%, #0b1020 100%);
+}
+
+/* 초상화 영역 — 카드 높이의 약 62% */
+.otaku-art {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* 카드 높이 대비 62~70% (Star Rail·Umamusume 카드 실측 비율)
+   * vc210 — 96 → 112 → 150px: 스프라이트를 2배(192×128)까지 키워
+   * 아트 영역 대비 존재감을 40% → 85% 로 올린다. */
+  height: 150px;
+  overflow: hidden;
+  border-radius: 9px 9px 0 0;
+  background:
+    radial-gradient(70% 90% at 50% 42%,
+      color-mix(in srgb, var(--otaku-accent, #69e0ff) 30%, transparent) 0%,
+      transparent 72%);
+}
+/* 픽셀 스프라이트는 확대 시 뭉개지지 않게 nearest 유지 */
+.otaku-art img {
+  image-rendering: pixelated;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.55));
+  transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.3, 1), filter 0.18s ease-out;
+}
+.otaku-card:hover .otaku-art img {
+  transform: translateY(-2px) scale(1.06);
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.65))
+          drop-shadow(0 0 10px color-mix(in srgb, var(--otaku-accent, #69e0ff) 45%, transparent));
+}
+.otaku-card[data-selected="true"] .otaku-art img {
+  filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.6))
+          drop-shadow(0 0 12px color-mix(in srgb, #e8c064 55%, transparent));
+}
+
+/* 선택 카드의 초상화 영역 배경을 한 단계 밝게 — 가챠 카드의 "각성" 느낌 */
+.otaku-card[data-selected="true"] .otaku-art {
+  background:
+    radial-gradient(70% 90% at 50% 42%,
+      color-mix(in srgb, var(--otaku-accent, #69e0ff) 46%, transparent) 0%,
+      transparent 74%);
+}

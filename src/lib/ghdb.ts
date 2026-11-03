@@ -1,0 +1,368 @@
+/**
+ * v1.4.22 — GitHub-as-DB 계층 (②안: 계정·거래소 Vercel serverless 마이그레이션)
+ *
+ *  배경: space-z.ai 게임 서버 본체(sertz5/sertz11)를 폐기하고 계정·거래소·랭킹·클라우드
+ *  세이브를 Vercel serverless API 라우트로 옮긴다. 소켓 멀티플레이는 제외(오프라인 모드).
+ *
+ *  저장소 구조:
+ *   - DB 파일 = apple01234/CERTZ-DB (private) :: db-backup/accounts.enc
+ *   - 기존 accounts/index.js의 GitHub 백업과 "동일 파일·동일 포맷"(SZBK1 AES-256-GCM,
+ *     기본 키 "sertz-accounts-backup::v1") → 기존 계정·세이브·거래소 데이터 무손실 계승
+ *   - CERTZ(게임 코드 저장소)에 두면 계정 쓰기마다 커밋 → Vercel 재배포 폭주라
+ *     반드시 전용 저장소에 둔다. ghSeed 스크립트(scripts/ghdb_seed.js)로 이식 완료.
+ *
+ *  정합성 전략:
+ *   - 쓰기 = 항상 fresh GET(sha 확보) → mutate → PUT(sha 낙관 잠금)
+ *   - PUT 409/422(누군가 먼저 씀) → 재조회 후 재적용, 최대 4회
+ *   - 읽기 = 인스턴스 메모리 캐시(8초 TTL) — 랭킹/거래소 목록 등 공개 읽기 절감
+ */
+
+import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
+
+/* ---------------- 데이터 형태 (accounts/index.js 파일 DB와 동일) ---------------- */
+export type UserRec = { id: string; name: string; provider: string; salt: string; hash: string; createdAt: number; role?: string };
+export type TokenRec = { userId: string; expiresAt: number };
+export type SaveRec = {
+  data: Record<string, unknown>;
+  updatedAt: number;
+  chars?: Record<string, Record<string, unknown>>;
+  /** vc229 — 마지막 저장 시점의 내용 지문. 같으면 쓰기를 건너뛴다(O(N) 전송 절약). */
+  fp?: string;
+  /** vc229 — `data`/`chars` 가 압축 base64(`BR:`/`GZ:`)로 저장됐다는 표시.
+   *  필드 자체가 없으면 종전 그대로 평문 객체다(구 세이브 호환). */
+  packed?: boolean;
+};
+export type ListingRec = { id: string; seller: string; sellerName: string; itemKey: string; up: number; price: number; qty?: number; ts: number };
+export type PayoutRec = { gold: number; count: number };
+/** v1.0.13 피드백#8 — 전역 닉네임 레지스트리 레코드.
+ *  주의: node 서버(accounts/index.js)와 같은 SZBK1 백업 파일(db-backup/accounts.enc)을 공유하므로
+ *  값 형태를 node({by, at, kind})와 다르게 쓰면 node의 nickTaken(reg.by)이 오판한다.
+ *  읽기 정규화에서 구형/이형 값(문자열 uid)은 node 호환 형태로 흡수한다. */
+export type CharNameRec = { by: string; at: number; kind?: string };
+export type DbShape = {
+  campaigns?: Record<string, import("./campaignStore").CampaignStore>;
+  users: Record<string, UserRec>;
+  tokens: Record<string, TokenRec>;
+  saves: Record<string, SaveRec>;
+  market: { nextId: number; listings: Record<string, ListingRec> };
+  payouts: Record<string, PayoutRec>;
+  rank: Record<string, unknown>;
+  /** v1.0.13 피드백#8 — 닉네임 중복 방지 (이름(소문자) → 소유 레코드). node db.charNames와 동일 */
+  charNames?: Record<string, CharNameRec>;
+  /** vc205 (감사 #2) — 인앱결제 토큰 1회성 대장 (purchaseToken → 지급 기록).
+   *  같은 토큰으로 두 번 지급받는 것을 막는다. */
+  iapUsed?: Record<string, { uid: string; sku: string; gems: number; at: number; orderId: string }>;
+};
+
+function emptyDb(): DbShape {
+  return { users: {}, tokens: {}, saves: {}, market: { nextId: 1, listings: {} }, payouts: {}, rank: {}, charNames: {}, iapUsed: {} };
+}
+
+/* ---------------- 환경 ---------------- */
+const DB_REPO = (process.env.SERTZ_GH_REPO || "apple01234/CERTZ-DB").replace(/^\/+|\/+$/g, "");
+const FALLBACK_REPO = "apple01234/CERTZ"; // 이식 전 구 백업 위치 (읽기 폴백만)
+const DB_PATH = "db-backup/accounts.enc";
+const BRANCH = "main";
+const SUPPORT_PATH = "db-backup/support-inbox.json";
+
+function ghToken(): string {
+  return (process.env.GITHUB_TOKEN || "").trim();
+}
+
+function ghHeaders(extra: Record<string, string> = {}): Record<string, string> {
+  return {
+    Authorization: `Bearer ${ghToken()}`,
+    Accept: "application/vnd.github+json",
+    "User-Agent": "sertz-vercel-db",
+    ...extra,
+  };
+}
+
+/* ---------------- SZBK1 암복호화 (accounts/index.js와 바이트 호환) ----------------
+ * v1.0.15 — 키 회전(rotation) 지원.
+ *  · 암호화는 항상 현재 키(SERTZ_BACKUP_KEY, 미설정 시 기본 상수)로만 한다.
+ *  · 복호화는 현재 키 → 이전 키(SERTZ_BACKUP_KEY_PREV) 순으로 시도한다. 이전 키는 **읽기 전용**이다.
+ *  이 구조 덕분에 키 교체가 무중단·순서무관이 된다:
+ *    ① 새 코드 배포 → ② SERTZ_BACKUP_KEY=새키 + _PREV=기존키 설정 → ③ 첫 쓰기 때 새 키로 자동 재암호화
+ *    → ④ 쓰기가 한 번 지나간 뒤 _PREV 제거.
+ *  종전엔 순서를 틀리면(키 먼저 교체) 기존 백업을 못 읽어 로그인·거래소·랭킹이 전부 500이 됐다.
+ *  기본 상수는 소스에 공개돼 있으므로, 백업 DB가 공개 저장소에 커밋되면 누구나 복호화할 수 있다.
+ *  운영 환경에는 반드시 SERTZ_BACKUP_KEY를 설정한다. */
+const DEFAULT_KEY_SECRET = "sertz-accounts-backup::v1";
+
+let warnedDefaultKey = false;
+let warnedPrevKey = false;
+
+function deriveKey(secret: string): Buffer {
+  return createHash("sha256").update(secret).digest();
+}
+
+/** 암호화에 쓰는 현재 키. 미설정이면 소스에 공개된 기본 상수로 폴백하고 1회 경고한다. */
+function currentKeySecret(): string {
+  const env = process.env.SERTZ_BACKUP_KEY;
+  if (env) return env;
+  if (!warnedDefaultKey) {
+    warnedDefaultKey = true;
+    console.warn(
+      "[SERTZ-db] 경고: SERTZ_BACKUP_KEY 미설정 — 소스에 공개된 기본 키로 계정 백업을 암복호화하고 있습니다. " +
+        "운영 환경에서는 반드시 별도 키를 설정하세요."
+    );
+  }
+  return DEFAULT_KEY_SECRET;
+}
+
+/** 복호화에 시도할 키 목록 — 현재 키가 먼저, 이전 키가 다음(읽기 전용). */
+function decryptSecrets(): string[] {
+  const current = currentKeySecret();
+  const prev = (process.env.SERTZ_BACKUP_KEY_PREV || "").trim();
+  return prev && prev !== current ? [current, prev] : [current];
+}
+
+function backupKey(): Buffer {
+  return deriveKey(currentKeySecret());
+}
+
+function backupEncrypt(json: string): string {
+  const iv = randomBytes(12);
+  const c = createCipheriv("aes-256-gcm", backupKey(), iv);
+  const enc = Buffer.concat([c.update(json, "utf8"), c.final()]);
+  return Buffer.concat([Buffer.from("SZBK1"), iv, c.getAuthTag(), enc]).toString("base64");
+}
+
+/** SZBK1 컨테이너를 분해해 키 후보를 차례로 시도한다. 모두 실패하면 null. */
+function backupDecrypt(b64: string): string | null {
+  let raw: Buffer;
+  try {
+    raw = Buffer.from(String(b64), "base64");
+  } catch {
+    return null;
+  }
+  if (raw.length < 33 || raw.subarray(0, 5).toString() !== "SZBK1") return null;
+  const iv = raw.subarray(5, 17), tag = raw.subarray(17, 33), data = raw.subarray(33);
+
+  const secrets = decryptSecrets();
+  for (let i = 0; i < secrets.length; i++) {
+    try {
+      const d = createDecipheriv("aes-256-gcm", deriveKey(secrets[i]), iv);
+      d.setAuthTag(tag);
+      const json = Buffer.concat([d.update(data), d.final()]).toString("utf8");
+      /* i > 0 = 이전 키로 성공 → 첫 쓰기에서 새 키로 재암호화된다 */
+      if (i > 0 && !warnedPrevKey) {
+        warnedPrevKey = true;
+        console.warn(
+          "[SERTZ-db] 이전 키(SERTZ_BACKUP_KEY_PREV)로 복호화했습니다 — 첫 쓰기에서 새 키로 재암호화됩니다. 이후 _PREV를 제거하세요."
+        );
+      }
+      return json;
+    } catch {
+      /* 이 키로는 복호화 불가 — 다음 후보로 */
+    }
+  }
+  return null;
+}
+
+/* ---------------- GitHub Contents API ---------------- */
+type RawFile = { sha: string | null; enc: string };
+
+async function ghGetFrom(repo: string): Promise<RawFile | null> {
+  const r = await fetch(`https://api.github.com/repos/${repo}/contents/${DB_PATH}?ref=${BRANCH}`, {
+    headers: ghHeaders(),
+    signal: AbortSignal.timeout(8000),
+    cache: "no-store",
+  });
+  if (r.status === 404) return null;
+  if (!r.ok) throw new Error(`gh GET ${r.status}`);
+  const j = (await r.json()) as { sha?: string; content?: string };
+  return { sha: j.sha ?? null, enc: j.content ? Buffer.from(j.content, "base64").toString("utf8") : "" };
+}
+
+/** 쓰기 결과 — ok(새 sha) 또는 conflict(재시도) */
+type PutResult = { ok: true; sha: string } | { ok: false; conflict: boolean; status: number };
+
+async function ghPutRaw(enc: string, sha: string | null): Promise<PutResult> {
+  const fileB64 = Buffer.from(enc, "utf8").toString("base64"); // 파일 내용(base64 텍스트)의 재인코딩
+  const r = await fetch(`https://api.github.com/repos/${DB_REPO}/contents/${DB_PATH}`, {
+    method: "PUT",
+    headers: ghHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({
+      message: `accounts db ${new Date().toISOString().slice(0, 16)}`,
+      content: fileB64,
+      ...(sha ? { sha } : {}),
+      branch: BRANCH,
+    }),
+    signal: AbortSignal.timeout(12000),
+    cache: "no-store",
+  });
+  if (r.ok) {
+    const j = (await r.json()) as { content?: { sha?: string }; commit?: { sha?: string } };
+    return { ok: true, sha: j.content?.sha ?? j.commit?.sha ?? "" };
+  }
+  /* 409/422 = sha 충돌(누군가 먼저 씀) — 재시도 대상. 그 외는 진짜 오류 */
+  const conflict = r.status === 409 || r.status === 422;
+  if (!conflict) console.error(`[SERTZ-db] PUT 실패: ${r.status}`);
+  return { ok: false, conflict, status: r.status };
+}
+
+/* ---------------- DB 로드/정규화/캐시 ---------------- */
+const ADMIN_USERS = (process.env.SERTZ_ADMIN_USERS || "admin,apple01234")
+  .split(",").map((x) => x.trim().toLowerCase()).filter(Boolean);
+
+function normalizeDb(db: DbShape): DbShape {
+  db.users ||= {};
+  db.tokens ||= {};
+  db.saves ||= {};
+  db.market ||= { nextId: 1, listings: {} };
+  db.market.listings ||= {};
+  db.payouts ||= {};
+  db.rank ||= {};
+  db.iapUsed ||= {}; // vc205 (감사 #2) — 인앱결제 토큰 대장
+  /* v1.0.13 피드백#8 — 닉네임 레지스트리 기본값 + node 호환 형태 정규화.
+   *  문자열 uid(이형 값)는 {by, at, kind}로 승격, 소유자 없는 항목은 제거. */
+  db.charNames ||= {};
+  for (const [k, raw] of Object.entries(db.charNames)) {
+    const v = raw as unknown;
+    if (typeof v === "string") {
+      if (v) db.charNames[k] = { by: v, at: 0, kind: "char" };
+      else delete db.charNames[k];
+    } else if (!v || typeof (v as CharNameRec).by !== "string" || !(v as CharNameRec).by) {
+      delete db.charNames[k];
+    }
+  }
+  /* v1.0.2 계승 — env 관리자 목록 동기화(롤 자동 승격/회수)
+   *  v1.0.15 보안 — 판정 기준을 아이디로만 좁혔다. 이름까지 비교하면 name="admin"으로
+   *  가입한 일반 계정이 롤 승격되는 권한 상승 경로가 된다(normalizeDb는 로드마다 실행). */
+  for (const u of Object.values(db.users)) {
+    const shouldAdmin = ADMIN_USERS.includes(String(u.id || "").toLowerCase());
+    if (shouldAdmin && u.role !== "admin") u.role = "admin";
+    else if (!shouldAdmin && u.role === "admin") u.role = "user";
+  }
+  return db;
+}
+
+function parseDbRaw(raw: RawFile | null): { db: DbShape; sha: string | null } {
+  if (!raw || !raw.enc) return { db: emptyDb(), sha: raw?.sha ?? null };
+  const json = backupDecrypt(raw.enc);
+  if (!json) throw new Error("DB 복호화 실패 — 키 불일치?");
+  const parsed = JSON.parse(json) as DbShape;
+  return { db: normalizeDb(parsed), sha: raw.sha };
+}
+
+type Cache = { db: DbShape; sha: string | null; at: number } | null;
+let cache: Cache = null;
+const CACHE_TTL_MS = 8000;
+
+/** DB 로드 — force=false면 8초 캐시(공개 읽기 절감), true면 항상 fresh(쓰기 직전 필수) */
+export async function loadDb(force = false): Promise<{ db: DbShape; sha: string | null }> {
+  if (!force && cache && Date.now() - cache.at < CACHE_TTL_MS) return { db: cache.db, sha: cache.sha };
+  if (!ghToken()) throw new Error("GITHUB_TOKEN 미설정 — 서버 설정 오류");
+  let raw: RawFile | null = null;
+  let primaryFailed = false;
+  try {
+    raw = await ghGetFrom(DB_REPO);
+  } catch (e) {
+    /* 전용 저장소 조회 실패 시 구 백업 폴백(읽기만) — 이식 전 전환 안전망.
+     *  v1.0.15 — 공개 저장소의 db-backup/accounts.enc는 보안상 추적 해제됐으므로
+     *  이 폴백은 이제 사실상 비어 있다(404). 그래서 아래 가드가 그 자리를 대신한다. */
+    primaryFailed = true;
+    console.error(`[SERTZ-db] ${DB_REPO} 조회 실패 → ${FALLBACK_REPO} 폴백`, e);
+    raw = await ghGetFrom(FALLBACK_REPO).catch(() => null);
+  }
+  /* 전용 저장소가 비어 있고 구 백업이 있으면 이식 (최초 1회 자동 마이그레이션) */
+  if (!raw) {
+    const legacy = await ghGetFrom(FALLBACK_REPO).catch(() => null);
+    if (legacy && legacy.enc) {
+      const put = await ghPutRaw(legacy.enc, null);
+      if (put.ok) raw = { sha: put.sha, enc: legacy.enc };
+      else raw = legacy; // 쓰기 실패해도 읽기는 진행
+    }
+  }
+  /* v1.0.15 — 일시 오류를 빈 DB로 둔갑시키지 않는다.
+   *  종전엔 전용 저장소 조회가 오류여도 폴백까지 비면 parseDbRaw(null) → emptyDb()가 되어
+   *  "계정이 사라진 것처럼" 보였다(로그인 실패 → 재가입 유혹). 쓰기는 sha 없는 PUT이라
+   *  GitHub이 422로 거부하므로 데이터 유실은 아니지만, 사용자에게는 똑같이 참혹하다.
+   *  부트스트랩(파일이 아직 없는 404 = primaryFailed 아님)은 그대로 emptyDb()로 진행한다. */
+  if (primaryFailed && (!raw || !raw.enc)) {
+    throw new Error("DB 로드 실패 — GitHub 조회 일시 오류(빈 DB로 진행하지 않음)");
+  }
+  const out = parseDbRaw(raw);
+  cache = { db: out.db, sha: out.sha, at: Date.now() };
+  return out;
+}
+
+export type Resp = { status: number; body: unknown; headers?: Record<string, string> };
+
+/**
+ * 원자적 변경 — fresh 로드 → mutator(db) 변형/조기응답 → PUT(sha 잠금).
+ *
+ * vc205 (감사 #4) — **반환값 기반으로 전환.** 종전엔 mutator가 `null` 을 돌려주고
+ * 결과를 바깥 클로저(`let success`)에 담는 방식이었다. 충돌로 재시도하면 mutator가
+ * 다시 실행되는데 클로저에는 이전 시도의 응답이 남아 있어, 재시도 성공 후 **낡은 응답**을
+ * 반환하거나 `removedEscrow` 같은 누적값이 두 배가 될 수 있었다.
+ * 이제 mutator는 `{ resp }`(쓸 응답) 또는 `Resp`(쓰기 없이 즉시 응답)를 돌려준다.
+ * 부수효과가 없으므로 재시도가 몇 번을 돌아도 안전하다.
+ *
+ * vc205 (감사 #7) — 5xx 도 재시도 대상에 넣는다. 종전엔 409/422 만 재시도하고
+ * GitHub 이 500/502 를 한 번 내면 곧바로 503(저장 실패)을 사용자에게 돌려줬다.
+ */
+export type MutateResult = Resp | { resp: Resp };
+
+export async function mutateDb(fn: (db: DbShape) => MutateResult): Promise<Resp> {
+  const busy: Resp = { status: 503, body: { error: "서버가 바빠요 — 잠시 후 다시 시도해 주세요" } };
+  const MAX_TRY = 6;
+  for (let i = 0; i < MAX_TRY; i++) {
+    const { db, sha } = await loadDb(true);
+    /* vc228 (감사 #2) — **작업 사본**에서 변형한다.
+     *  종전엔 `loadDb(true)` 가 준 객체가 곧 `cache.db` 와 동일 참조라
+     *  `fn(db)` 가 캐시를 직접 고쳤다. PUT 이 6회 모두 실패하면 캐시에는
+     *  **저장된 적 없는 변경**이 남고, 다음 8초(CACHE_TTL_MS) 동안 모든 읽기
+     *  (`market/buy`·`cloud-save` GET·`auth/me`)가 그 거짓 상태를 본다.
+     *  사본에서만 변형하고 성공 시에만 캐시를 갈아끼우면 그 창이 사라진다. */
+    const working = structuredClone(db) as DbShape;
+    const out = fn(working);
+    /* Resp 를 그대로 주면 "쓰기 없이 이 응답" (검증 실패 등) */
+    if (!("resp" in out)) return out;
+    const put = await ghPutRaw(backupEncrypt(JSON.stringify(working)), sha);
+    if (put.ok) {
+      cache = { db: working, sha: put.sha, at: Date.now() };
+      return out.resp; // mutator 가 준 응답 그대로 — 클로저 부수효과 없음
+    }
+    /* 일시 오류(5xx/네트워크) 도 재시도 — 지수 백오프로 GitHub 부하를 피한다 */
+    const retryable = put.conflict || put.status >= 500;
+    if (!retryable) return { status: 503, body: { error: "서버 저장에 실패했어요 — 잠시 후 다시 시도" } };
+    if (i < MAX_TRY - 1) await new Promise((r) => setTimeout(r, 60 * (i + 1)));
+  }
+  return busy;
+}
+
+/* ---------------- 지원센터 수집함 (별도 파일 — 계정 DB와 분리해 잠금 경쟁 회피) ---------------- */
+export async function appendSupport(rec: unknown): Promise<boolean> {
+  if (!ghToken()) return false;
+  for (let i = 0; i < 3; i++) {
+    const cur = await fetch(`https://api.github.com/repos/${DB_REPO}/contents/${SUPPORT_PATH}?ref=${BRANCH}`, {
+      headers: ghHeaders(), signal: AbortSignal.timeout(8000), cache: "no-store",
+    }).then((r) => (r.ok ? (r.json() as Promise<{ sha?: string; content?: string }>) : null)).catch(() => null);
+    let list: unknown[] = [];
+    let sha: string | null = null;
+    if (cur && cur.content) {
+      sha = cur.sha ?? null;
+      try { list = JSON.parse(Buffer.from(cur.content, "base64").toString("utf8")); } catch { list = []; }
+      if (!Array.isArray(list)) list = [];
+    }
+    list.push(rec);
+    list = list.slice(-300); // 상한 — 파일 비대화 방지
+    const r = await fetch(`https://api.github.com/repos/${DB_REPO}/contents/${SUPPORT_PATH}`, {
+      method: "PUT",
+      headers: ghHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({
+        message: `support inbox ${new Date().toISOString().slice(0, 16)}`,
+        content: Buffer.from(JSON.stringify(list), "utf8").toString("base64"),
+        ...(sha ? { sha } : {}),
+        branch: BRANCH,
+      }),
+      signal: AbortSignal.timeout(12000), cache: "no-store",
+    });
+    if (r.ok) return true;
+    if (r.status !== 409 && r.status !== 422) return false;
+  }
+  return false;
+}

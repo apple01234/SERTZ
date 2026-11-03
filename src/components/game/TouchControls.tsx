@@ -1,0 +1,550 @@
+"use client";
+
+import { useCallback, useEffect, useRef, useState } from "react";
+import { SkillButton } from "./SkillButton"; // vc206 — 아이콘 아래 스킬명 레이아웃
+import { EventBus } from "./EventBus";
+import { Swords, Bot, Pause, Star, Sparkles } from "lucide-react";
+import type { Skills } from "./useGameUi";
+import { loadKeyMap, keyLabel } from "@/game/keymap";
+import { ITEMS } from "@/game/data"; // vc150 (#신규1) — 장착 물약 아이콘 실경로 조회 // v1.0.4 — 물약 키 힌트를 키맵 따라 표시
+
+/* v3.0.18 — 52→64px: 스틱 반경 확대로 미세 조작 정밀도 향상 + 풀 기울임이 쉬워짐
+ *  (기존 52px는 손가락이 조금만 쉬어도 실질 60~85% 속도 — "이속이 느림" 체감의 주원인) */
+const JOY_RADIUS = 64;
+
+/* vc143 (#7 화면 크기 대응 아이콘) — 유저 지시 “PC에서나 기기 화면 크기에 맞게 아이콘 크기도 키워”.
+ *  화면이 클수록 조작 버튼·조이스틱을 배율 확대 (모바일 1.0 유지 — 기존 체감 보존).
+ *  PC 전체화면(1920)에서 공격 버튼 100→150px · 스킬 56→84px · 조이스틱 64→96px 반경 */
+function uiScaleOf(): number {
+  if (typeof window === "undefined") return 1;
+  const w = window.innerWidth;
+  if (w >= 1600) return 1.5;
+  if (w >= 1280) return 1.35;
+  if (w >= 1024) return 1.22;
+  if (w >= 768) return 1.12;
+  return 1;
+}
+
+/* ═══ v1.0.2-beta — 조작 UI 배치 복귀 (유저 지시 "배치만 옛날처럼") ═══
+ *  v1.4.12~v1.4.28의 와일드리프트식 아크(부채꼴) 배치를 철거하고, 그 이전의
+ *  우하단 flex 행 [자동+물약 세로열] [스킬그리드] [공격] 구조로 되돌린다.
+ *  단, 스킬/물약/공격/자동 버튼의 색·모양·크기(현행 SkillButton/PotionButton)는 그대로 —
+ *  "배치만" 복귀가 원칙. 좁은 세로 화면(W<576)의 물약-조이스틱 겹침만은
+ *  v1.4.18 안전장치(클러스터 플로팅)를 유지한다(배치가 아닌 사고 방지 장치). */
+
+/**
+ * F3 반응형 핵심: 멀티터치 가상 컨트롤러
+ *  - 왼쪽 절반: 동적 원점 조이스틱 (터치한 곳이 그때그때 중심)
+ *  - 오른쪽: 공격/회전베기/돌진베기 버튼 — pointerdown 즉시 발동
+ *  - pointerId 추적으로 동시 조작 보장, touch-action:none으로 스크롤 차단
+ */
+export function TouchControls({
+  skills,
+  hpPot,
+  mpPot,
+  quickPots,
+  potCount,
+  atkName,
+  s1Name,
+  s2Name,
+  s3Name,
+  s4Name,
+  s5Name,
+  s5bName,
+  canAutoHunt,
+  autoHunt,
+}: {
+  skills: Skills;
+  hpPot: number;
+  mpPot: number;
+  /* v3.0.15 (#7) — 퀵슬롯에 장착된 물약 아이템키/수량 */
+  quickPots?: { hp: string; mp: string };
+  potCount?: (k: string) => number;
+  atkName?: string;
+  s1Name?: string;
+  s2Name?: string;
+  /** v3.0.3 — 3차기/4차기 (미해금 시 빈 문자열 → 버튼 숨김) */
+  s3Name?: string;
+  s4Name?: string;
+  /** v3.2.0 — 5차 궁극기 (Lv.200 해금, 쿨타임 60초) */
+  s5Name?: string;
+  /** vc146 (#2) — 5차 제2궁극기 (Lv.200 해금, 쿨타임 120초) */
+  s5bName?: string;
+  canAutoHunt?: boolean;
+  autoHunt?: boolean;
+}) {
+  /* v3.0.18 — 조이스틱 걸림 근원 제거: 기존엔 스틱 1px마다 setJoyKnob(setState) →
+   *  모바일 WebView에서 매 프레임 리렌더 → 입력/프레임 지연 = "움직일 때 뭔가 걸리는 느낌".
+   *  이제 베이스/노브를 ref 직접 DOM 조작으로 그린다 — 드래그 중 리렌더 0.
+   *  dragging 상태는 down/up 1회씩만 변경 (안내 패드 토글용). */
+  const [dragging, setDragging] = useState(false);
+  const joyPointer = useRef<number | null>(null);
+  const joyBaseRef = useRef<HTMLDivElement | null>(null);
+  const joyKnobRef = useRef<HTMLDivElement | null>(null);
+  const joyOriginRef = useRef<{ x: number; y: number } | null>(null);
+  /* v2.9 (사용자 지시 #2) — PC에서도 스킬 쿨타임/물약/자동사냥 버튼을 보여준다.
+   *  isTouch = 조이스틱 표시 여부. PC(마우스 전용)면 버튼만, 터치면 조이스틱+버튼 */
+  const [isTouch, setIsTouch] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      (window.matchMedia("(pointer: coarse)").matches || window.innerWidth < 900)
+  );
+  /* v1.4.19 (#화면깨짐) — 세로 좁은 화면에서는 우하단 버튼 클러스터 왼쪽 가장자리가
+   *  조이스틱 영역(46%) 안으로 파고든다 → 물약/자동사냥 버튼이 조이스틱과 겹쳐
+   *  "이동할 때마다 물약이 발려 화면이 깨진다"는 리포트의 직접 원인.
+   *  겹침 판정: 컨테이너 left = W - 클러스터폭 < 0.46W 구간.
+   *  겹침 시 [자동+물약] 클러스터를 행 위쪽 가로열로 플로팅한다. */
+  const [clusterFloat, setClusterFloat] = useState(() => typeof window !== "undefined" && window.innerWidth < 576);
+  /* vc143 (#7) — 화면 배율 상태 (resize 반영) */
+  const [uiScale, setUiScale] = useState(() => (typeof window === "undefined" ? 1 : uiScaleOf()));
+
+  /* v1.0.13 피드백#17 — 튜토리얼 대상 DOM 버튼 하이라이트
+   *  Tutorial.ts가 ⑤스킬/⑥물약 단계 진입·완료 시 { key: "skill"|"potion", on } 을 발사하면
+   *  대응 버튼(첫 스킬 버튼/HP 물약 버튼)에 pulsing ring을 씌운다. 언마운트 시 구독 해제. */
+  const [tutDom, setTutDom] = useState<Record<string, boolean>>({});
+  useEffect(() => {
+    const onTutDom = (p: { key: string; on: boolean }) => {
+      setTutDom((prev) => (prev[p.key] === p.on ? prev : { ...prev, [p.key]: p.on }));
+    };
+    EventBus.on("tut:dom", onTutDom);
+    return () => {
+      EventBus.off("tut:dom", onTutDom);
+    };
+  }, []);
+
+  useEffect(() => {
+    const reevaluate = () => {
+      const coarse = window.matchMedia("(pointer: coarse)").matches;
+      setIsTouch(coarse || window.innerWidth < 900);
+      setClusterFloat(window.innerWidth < 576);
+      setUiScale(uiScaleOf());
+    };
+    reevaluate();
+    const onTouch = () => setIsTouch(true);
+    window.addEventListener("touchstart", onTouch, { once: true, passive: true });
+    window.addEventListener("resize", reevaluate);
+    return () => {
+      window.removeEventListener("touchstart", onTouch);
+      window.removeEventListener("resize", reevaluate);
+    };
+  }, []);
+
+  const sendMove = useCallback((x: number, y: number) => {
+    EventBus.emit("input:move", { x, y });
+  }, []);
+
+  const onJoyDown = (e: React.PointerEvent) => {
+    if (joyPointer.current !== null) return;
+    joyPointer.current = e.pointerId;
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    joyOriginRef.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    setDragging(true);
+    const base = joyBaseRef.current;
+    if (base) {
+      base.style.display = "block";
+      base.style.left = `${joyOriginRef.current.x - joyR}px`;
+      base.style.top = `${joyOriginRef.current.y - joyR}px`;
+    }
+    const knob = joyKnobRef.current;
+    if (knob) {
+      knob.style.display = "block";
+      knob.style.left = `${joyOriginRef.current.x - knobR}px`;
+      knob.style.top = `${joyOriginRef.current.y - knobR}px`;
+    }
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+
+  const onJoyMove = (e: React.PointerEvent) => {
+    const origin = joyOriginRef.current;
+    if (joyPointer.current !== e.pointerId || !origin) return;
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    let dx = e.clientX - rect.left - origin.x;
+    let dy = e.clientY - rect.top - origin.y;
+    const len = Math.hypot(dx, dy);
+    if (len > joyR) {
+      dx = (dx / len) * joyR;
+      dy = (dy / len) * joyR;
+    }
+    /* v3.0.18 — 노브 표시는 setState 없이 직접 DOM 이동 (리렌더 0 = 입력 지연 0) */
+    const knob = joyKnobRef.current;
+    if (knob) {
+      knob.style.left = `${origin.x + dx - knobR}px`;
+      knob.style.top = `${origin.y + dy - knobR}px`;
+    }
+    /* v3.0.18 — 무단속 연속 커브: 기존 14% 데드존 경계에서 속도 0→30% "계단 점프"가
+     *  미세 조작 시 뚝뚝 끊기는(걸리는) 체감의 물리적 원인. 신규 곡선은 계단 없이
+     *  8% 데드존(5px)부터 부드럽게 가속 — 42%(27px) 밀면 100% 최속 도달.
+     *  실측: raw=9%→13%, 15%→40%, 25%→67%, 35%→88%, 42%+→100% */
+    const raw = Math.min(1, len / joyR);
+    const t = Math.max(0, Math.min(1, (raw - 0.08) / 0.34));
+    const boosted = t <= 0 ? 0 : Math.pow(t, 0.58);
+    if (boosted > 0 && len > 0.001) {
+      /* v3.0.25 버그 수정 — "조이스틱을 너무 세게 당기면 느려지는" 원인:
+       *  반경(64px) 초과 시 dx·dy를 클램프한 뒤 [원본 len]으로 나눠서
+       *  방향 벡터 크기가 R/len(<1)로 줄어들었다 (128px 당김 = 정확히 반속).
+       *  수정: 클램프 [후] 길이(min(len, R))로 정규화 — 어떻게 당겨도 풀속 유지 */
+      const outLen = Math.hypot(dx, dy) || 1; // 클램프 후 길이 = min(len, joyR)
+      sendMove((dx / outLen) * boosted, (dy / outLen) * boosted);
+    } else {
+      sendMove(0, 0);
+    }
+  };
+
+  const onJoyUp = (e: React.PointerEvent) => {
+    if (joyPointer.current !== e.pointerId) return;
+    joyPointer.current = null;
+    joyOriginRef.current = null;
+    setDragging(false);
+    if (joyBaseRef.current) joyBaseRef.current.style.display = "none";
+    if (joyKnobRef.current) joyKnobRef.current.style.display = "none";
+    sendMove(0, 0);
+  };
+
+  const s1Ready = skills.s1Cd <= 0 && skills.mp >= 15;
+  const s2Ready = skills.s2Cd <= 0 && skills.mp >= 20;
+  const s1Pct = skills.s1Cd > 0 ? (skills.s1Cd / skills.s1Max) * 100 : 0;
+  const s2Pct = skills.s2Cd > 0 ? (skills.s2Cd / skills.s2Max) * 100 : 0;
+  /* v3.0.3 — 3차기/4차기 */
+  const s3Ready = skills.s3Cd <= 0 && skills.mp >= 25;
+  const s4Ready = skills.s4Cd <= 0 && skills.mp >= 40;
+  const s3Pct = skills.s3Cd > 0 ? (skills.s3Cd / Math.max(1, skills.s3Max)) * 100 : 0;
+  const s4Pct = skills.s4Cd > 0 ? (skills.s4Cd / Math.max(1, skills.s4Max)) * 100 : 0;
+  /* v3.2.0 — 5차 궁극기 (MP 100, 쿨타임 60초) */
+  const s5Ready = (skills.s5Cd ?? 0) <= 0 && skills.mp >= 100;
+  const s5Pct = (skills.s5Cd ?? 0) > 0 ? ((skills.s5Cd ?? 0) / Math.max(1, skills.s5Max ?? 60000)) * 100 : 0;
+  /* vc146 (#2) — 제2궁극기 쿨다운/준비 (MP 150) */
+  const s5bReady = (skills.s5bCd ?? 0) <= 0 && skills.mp >= 150;
+  const s5bPct = (skills.s5bCd ?? 0) > 0 ? ((skills.s5bCd ?? 0) / Math.max(1, skills.s5bMax ?? 120000)) * 100 : 0;
+
+  const sm = !isTouch; // PC(넓은 화면)에선 살짝 큰 크기
+  /* vc147 (#11) — 스킬/공격 버튼에 단축키 키탭 표시 (키맵 재배치 따라감)
+   *  vc206 (지시 #12) — "10시 방향 끝에 **자동 동기화** 스킬 단축키 버튼".
+   *  종전엔 `loadKeyMap()` 을 렌더 중에 한 번만 읽어, 설정에서 키를 바꿔도(키맵 변경)
+   *  컴포넌트가 리렌더되지 않는 한 **단축키 탭이 옛 값으로 남았다.**
+   *  이제 keymap:changed 를 구독해 상태로 들고 있으므로 즉시 반영된다. */
+  const [km, setKm] = useState(() => loadKeyMap());
+  useEffect(() => {
+    const onKm = () => setKm(loadKeyMap());
+    EventBus.on("keymap:changed", onKm);
+    return () => { EventBus.off("keymap:changed", onKm); };
+  }, []);
+  /* v1.4.18 (#4) — 공격 버튼 100 (모바일) / 112 (PC) · v1.4.14 — 스킬 56/66 (현행 크기 유지)
+   * vc143 (#7) — 화면 배율 곱연산: 넓은 화면(PC 전체화면 등)에서 버튼이 화면에 맞게 커진다 */
+  const ATK = Math.round((sm ? 112 : 100) * uiScale); // 공격 버튼 지름
+  const SK = Math.round((sm ? 66 : 56) * uiScale); // 스킬 버튼 지름
+  /* vc143 (#7) — 조이스틱 반경/노브도 화면 배율 따라 확대 */
+  const joyR = Math.round(JOY_RADIUS * uiScale);
+  const knobR = Math.round(26 * uiScale);
+
+  const unlocked = [
+    /* v1.1.3 (#개편) — cdMax를 함께 넘겨 "남은 초"를 표시한다. 종전엔 어두운 오버레이만
+     *  있어서 쿨이 얼마나 남았는지 눈금으로만 가늠해야 했다(궁극기 60초처럼 긴 쿨은 특히 불편). */
+    { key: "s1", name: s1Name || "회전베기", mp: 15, ready: s1Ready, cd: s1Pct, cdMax: skills.s1Max, icon: skills.s1Icon, emit: "input:skill1", hint: km.skill1 },
+    { key: "s2", name: s2Name || "돌진베기", mp: 20, ready: s2Ready, cd: s2Pct, cdMax: skills.s2Max, icon: skills.s2Icon, emit: "input:skill2", hint: km.skill2 },
+    { key: "s3", name: s3Name ?? "", mp: 25, ready: s3Ready, cd: s3Pct, cdMax: skills.s3Max, icon: skills.s3Icon, emit: "input:skill3", hint: km.skill3 },
+    { key: "s4", name: s4Name ?? "", mp: 40, ready: s4Ready, cd: s4Pct, cdMax: skills.s4Max, icon: skills.s4Icon, emit: "input:skill4", hint: km.skill4 },
+  ].filter((s) => s.name); // 미해금(빈 이름) 스킬은 그리드에서 제외
+  const hasUlt = !!s5Name;
+  /* vc146 (#2) — 제2궁극기 버튼 표시 조건 */
+  const hasUlt2 = !!s5bName;
+
+  const autoBtn = canAutoHunt ? (
+    <button
+      aria-label={autoHunt ? "자동사냥 끄기" : "자동사냥 켜기"}
+      className={`relative flex h-10 w-10 shrink-0 touch-none select-none items-center justify-center rounded-full border-2 shadow-lg transition-transform active:scale-90 sm:h-12 sm:w-12 ${
+        autoHunt
+          ? "border-lime-200/80 bg-gradient-to-b from-lime-500 to-emerald-700 text-white animate-pulse"
+          : "border-white/25 bg-slate-800/85 text-white/80"
+      }`}
+      onPointerDown={(e) => {
+        e.preventDefault();
+        EventBus.emit("rpg:autohunt", {});
+      }}
+    >
+      {autoHunt ? <Pause size={17} /> : <Bot size={17} />}
+      <span className="absolute -top-1 left-0.5 rounded bg-slate-900/80 px-0.5 text-[8px] font-black text-white/80">
+        {autoHunt ? "자동중" : "자동"}
+      </span>
+    </button>
+  ) : null;
+  const hpBtn = (
+    <PotionButton
+      kind="hp"
+      count={hpPot}
+      itemKey={quickPots?.hp ?? "potion_hp"}
+      itemCount={potCount?.(quickPots?.hp ?? "potion_hp") ?? hpPot}
+      tint="from-rose-500 to-rose-700 border-rose-200/70"
+      tutGlow={!!tutDom.potion} /* v1.0.13 피드백#17 — 튜토리얼 ⑥ 대상 버튼 */
+      onDown={() => EventBus.emit("rpg:use", { kind: "hp" })}
+    />
+  );
+  const mpBtn = (
+    <PotionButton
+      kind="mp"
+      count={mpPot}
+      itemKey={quickPots?.mp ?? "potion_mp"}
+      itemCount={potCount?.(quickPots?.mp ?? "potion_mp") ?? mpPot}
+      tint="from-sky-500 to-blue-800 border-sky-200/70"
+      onDown={() => EventBus.emit("rpg:use", { kind: "mp" })}
+    />
+  );
+
+  return (
+    <>
+      {/* 조이스틱 영역 — v3.0.5: 화면 왼쪽 전체(45% × 전체 높이)에서 좌하단(46% × 아래 55%)으로 축소.
+          NPC 머리 위 상호작용 칩과 겹치던 인식 범위 문제 해소 (터치 기기에서만, PC는 마우스 방해 금지) */}
+      {isTouch && (
+      <div
+        className="absolute bottom-0 left-0 h-[55%] w-[46%] touch-none"
+        onPointerDown={onJoyDown}
+        onPointerMove={onJoyMove}
+        onPointerUp={onJoyUp}
+        onPointerCancel={onJoyUp}
+      >
+        {/* 대기 중 안내 패드 — v3.0.15 (#10): 이동표시를 살짝 아래로 내림 (bottom-20→bottom-15) */}
+        {!dragging && (
+          <div className="pointer-events-none absolute bottom-15 left-6 flex h-[104px] w-[104px] items-center justify-center rounded-full border-2 border-dashed border-white/30 bg-black/25 sm:bottom-19 sm:left-10">
+            <span className="text-[10px] font-black tracking-widest text-white/55">이동</span>
+          </div>
+        )}
+        {/* v3.0.18 — 항상 마운트 + ref 직접 스타일 갱신 (드래그 중 리렌더 0).
+         *  down 시 위치 지정, 평소엔 숨김 — JSX는 상태와 무관하게 고정 */}
+        <div
+          ref={joyBaseRef}
+          className="pointer-events-none absolute hidden rounded-full border-2 border-white/35 bg-white/10"
+          style={{ width: joyR * 2, height: joyR * 2 }}
+        />
+        <div
+          ref={joyKnobRef}
+          className="pointer-events-none absolute hidden rounded-full border-2 border-white/70 bg-white/40 shadow-lg"
+          style={{ width: knobR * 2, height: knobR * 2 }}
+        />
+      </div>
+      )}
+
+      {/* ═══ v1.0.2-beta — 옛날 배치 복귀: 우하단 flex 행 [자동+물약][스킬그리드][공격] ═══
+       *  버튼 색·모양·크기는 현행 그대로(SkillButton/PotionButton), 배치만 v1.4.12 이전 구조.
+       *  컨테이너는 pointer-events-none, 개별 버튼만 pointer-events-auto — 빈 공간 터치 통과 */}
+      <div
+        className="pointer-events-none absolute z-20 flex items-end gap-2"
+        /* vc235 (#4 "스킬 단축키 아직도 겹침 좀 더 안쪽으로") —
+         *  종전 right 0.5rem 은 화면 우측 끝에 붙어, 우측 상단 퀘스트 창의
+         *  하단 모서리와 스킬 그리드 첫 열이 겹쳤다(스크린샷 실측: S·Q 버튼이
+         *  퀘스트 본문을 가림). 안쪽으로 더 들여 충돌을 없앤다.
+         *  bottom 도 함께 올려 미니맵·EXP 바와의 접촉을 줄인다. */
+        style={{
+          right: "max(1.75rem, calc(env(safe-area-inset-right) + 1rem))",
+          bottom: "max(1.25rem, calc(env(safe-area-inset-bottom) + 0.5rem))",
+        }}
+      >
+        {/* [자동+물약] 세로열 — 옛날 좌측 클러스터. 좁은 세로 화면(clusterFloat)은
+         *  조이스틱 겹침 방지(v1.4.18 안전장치 유지) 때문에 행 위쪽 가로열로 피난 */}
+        {!clusterFloat && (
+          <div className="pointer-events-auto flex flex-col items-center gap-1.5">
+            {autoBtn}
+            {hpBtn}
+            {mpBtn}
+          </div>
+        )}
+        {/* [스킬그리드] — 해금된 스킬 2열 랩 그리드(아래→위로 쌓임), 궁극기는 마지막 칸의
+         *  살짝 큰 황금 버튼(현행 스타일). 미해금 스킬은 그리드에서 제외 */}
+        <div
+          className="pointer-events-auto flex flex-wrap-reverse items-end justify-end gap-1.5"
+          style={{ maxWidth: SK * 2 + 26 }}
+        >
+          {unlocked.map((s) => (
+            /* vc206 (지시 #12) — 래퍼 높이를 SK 로 고정하면 버튼 **아래** 스킬명이 잘린다.
+             *  버튼만 SK×SK 로 두고 래퍼는 내용 높이만큼 늘어나게 한다. */
+            <div key={s.key} style={{ width: SK }}>
+              <div style={{ width: SK, height: SK }}>
+              <SkillButton
+                ready={s.ready}
+                cdPct={s.cd}
+                cdMax={s.cdMax}
+                label={s.name}
+                mp={s.mp}
+                icon={s.icon}
+                compact={!!sm}
+                tutGlow={s.key === "s1" && !!tutDom.skill} /* v1.0.13 피드백#17 — 튜토리얼 ⑤는 첫 스킬(회전베기) 대상 */
+                /* vc217 — 터치에서도 표시. 종전엔 isTouch 면 무조건 숨겼는데,
+                 *  pointer:coarse 판정은 **블루투스 키보드를 붙인 태블릿/폰도 포함**한다.
+                 *  그 기기에서는 키가 실제로 동작하는데 힌트만 사라져 "단축키가
+                 *  동기화 안 된다"처럼 보였다. 키보드가 없으면 배지가 보일 뿐 손해가 없으므로
+                 *  기기와 무관하게 키를 노출한다(사용자 지시: 단축키를 표시). */
+                keyHint={keyLabel(s.hint)}
+                onDown={() => EventBus.emit(s.emit as "input:skill1")}
+              />
+              </div>
+            </div>
+          ))}
+          {hasUlt && (
+            <div style={{ width: SK + 6 }}>
+              <div style={{ width: SK + 6, height: SK + 6 }}>
+              <SkillButton
+                ready={s5Ready}
+                cdPct={s5Pct}
+                cdMax={skills.s5Max ?? 60000}
+                label={s5Name || ""}
+                mp={100}
+                icon={skills.s5Icon}
+                ult
+                compact={!!sm}
+                keyHint={keyLabel(km.skill5)} /* vc217 — 터치에서도 표시 */
+                onDown={() => EventBus.emit("input:skill5")}
+              >
+                <Star size={18} />
+              </SkillButton>
+              </div>
+            </div>
+          )}
+          {/* vc146 (#2) — 제2궁극기 보라 금강 버튼 (쿨 2분 · MP 150)
+           *  vc147 (#3) — 그리드 maxWidth를 2SK+14→2SK+26으로 확대: 궁극기 행(2×(SK+6)+간격6=2SK+18)이
+           *  기존 폭보다 넓어 s5b가 s5 옆이 아닌 새 줄로 밀려나던 배치 버그 수정 — 이제 1차 궁극기 바로 옆 */}
+          {hasUlt2 && (
+            <div style={{ width: SK + 6 }}>
+              <div style={{ width: SK + 6, height: SK + 6 }}>
+              <SkillButton
+                ready={s5bReady}
+                cdPct={s5bPct}
+                cdMax={skills.s5bMax ?? 120000}
+                label={s5bName || ""}
+                mp={150}
+                /* vc204 (#3) — 종전엔 s5Icon(1차 궁극기 아이콘)을 그대로 써서
+                 *  2차 궁극기 버튼이 1차와 같은 그림이었다. s5bIcon 이 있으면 그것을 쓴다. */
+                icon={skills.s5bIcon ?? skills.s5Icon}
+                ult2
+                compact={!!sm}
+                keyHint={keyLabel(km.skill5b)} /* vc217 — 터치에서도 표시 */
+                onDown={() => EventBus.emit("input:skill5b")}
+              >
+                <Sparkles size={18} />
+              </SkillButton>
+            </div>
+              </div>
+          )}
+        </div>
+        {/* [공격] — 행 끝 대형 원형 버튼 (현행 스타일·크기 유지) */}
+        <button
+          aria-label="공격"
+          className="pointer-events-auto relative flex touch-none select-none items-center justify-center rounded-full border-[3px] border-rose-200/70 bg-gradient-to-b from-rose-500 to-rose-700 text-white shadow-[0_4px_14px_rgba(0,0,0,0.5)] transition-transform active:scale-90"
+          style={{ width: ATK, height: ATK }}
+          onPointerDown={(e) => {
+            e.preventDefault();
+            EventBus.emit("input:attack");
+          }}
+        >
+          {/* vc217 — 공격 단축키 배지. 종전엔 공격 버튼에 키 표시가 아예 없어
+           *  "스킬엔 있는데 공격은 왜 없나"가 불일치로 보였다. 스킬과 같은 규칙
+           *  (원 안쪽 10% 지점)으로 맞추고, 키맵 변경 시 함께 갱신된다. */}
+          {keyLabel(km.attack) && (
+            <span className="pointer-events-none absolute left-[10%] top-[10%] z-20 flex min-w-[13px] items-center justify-center rounded-[3px] bg-slate-950/95 px-[3px] text-[9px] font-black leading-[13px] text-rose-200 ring-1 ring-rose-300/50 [text-shadow:0_1px_1px_#000]">
+              {keyLabel(km.attack)}
+            </span>
+          )}
+          <div className="flex flex-col items-center">
+            {/* vc193 (버그 #2 "기본 공격키&상호작용키 등 저런 개짜치는 ai가 만든듯한 UI 전부 에셋 UI로 바꿔") —
+             *  종전엔 lucide <Swords> 벡터 + CSS 그라데이션으로 버튼을 그려서
+             *  "AI가 만든 듯한" 느낌이었다. 저장소에 이미 ui2/ab_sword.webp 등
+             *  전투 아이콘 에셋 6종이 있었는데 **한 곳에서도 쓰이지 않았다**.
+             *  에셋이 있으면 에셋을 쓰고, 로드 실패 시에만 벡터로 폴백한다. */}
+            <img
+              src="/assets/ui2/ab_sword.webp"
+              alt=""
+              draggable={false}
+              onError={(e) => {
+                const el = e.currentTarget;
+                if (el.dataset.fb) return;
+                el.dataset.fb = "1";
+                el.style.display = "none";
+                el.nextElementSibling?.classList.remove("hidden");
+              }}
+              className="h-[26px] w-[26px] drop-shadow-[0_2px_2px_rgba(0,0,0,0.55)]"
+              style={{ imageRendering: "pixelated" }}
+            />
+            <Swords size={26} className="hidden" />
+            <span className="mt-0.5 text-[10px] font-black tracking-wide">{atkName || "공격"}</span>
+          </div>
+          {/* vc154 (지시 #1) — 기본공격 단축키 키탭 제거 (유저 지시 "기본공격 단축키 X 아이콘 없애").
+           *  vc147에서 버튼에 키탭을 붙였을 때 attack 버튼에 relative가 없어 키탭이 클러스터
+           *  컨테이너(좌상단=자동 버튼 위)를 기준으로 배치돼, 어디서 왔는지 모를 유령 "X" 칩이
+           *  자동 버튼 위에 떠 있었다. 키탭 자체를 제거해 근본 해결 — 스킬 버튼 키탭(Z/C/V/A/S)은
+           *  relative 버튼 내부에 정상 렌더되므로 유지한다. */}
+        </button>
+        {/* clusterFloat(좁은 세로 화면) — [자동+물약]을 행 위쪽 가로열로 피난:
+         *  배치 복귀와 무관하게 조이스틱(화면 좌하단 46%)과의 겹침만 막는 안전장치(v1.4.18 계승) */}
+        {clusterFloat && (
+          <div className="pointer-events-auto absolute bottom-full right-0 mb-2 flex items-center gap-2">
+            {autoBtn}
+            {hpBtn}
+            {mpBtn}
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+function PotionButton({
+  kind,
+  count,
+  itemKey,
+  itemCount,
+  tint,
+  tutGlow,
+  onDown,
+}: {
+  kind: "hp" | "mp";
+  count: number;
+  /** v3.0.15 (#7) — 슬롯에 장착된 물약 아이템키 (기본 potion_hp/potion_mp) */
+  itemKey?: string;
+  itemCount?: number;
+  tint: string;
+  /** v1.0.13 피드백#17 — 튜토리얼 ⑥(물약 사용) 대상 하이라이트 (tut:dom → pulsing ring) */
+  tutGlow?: boolean;
+  onDown: () => void;
+}) {
+  const shown = itemCount ?? count;
+  /* v1.0.4 — PC 키 힌트 하드코딩(Q/R) 제거: 키맵 기본값(D/F)·재배치를 따라감
+   *  vc149 (#4) — 터치 기기에서는 키보드 힌트를 숨긴다 (기기에 맞는 표기) */
+  const [isTouchPotion] = useState(
+    () => typeof window !== "undefined" && (window.matchMedia("(pointer: coarse)").matches || window.innerWidth < 900)
+  );
+  const kmHint = loadKeyMap();
+  /* vc150 (#신규1) — 장착 물약의 실제 아이콘은 ITEMS[itemKey].icon으로 조회한다.
+   *  기존엔 `item_${itemKey}.webp` 문자열을 조합해 potion_hp3~hp10/mp3~mp10/gm_elixir 같은
+   *  고급 물약이 전부 404(깨진 이미지)였다 — 캐시 버스팅 재시도로도 해결 안 되는 근본 원인. */
+  const def = (ITEMS as Record<string, { icon?: string }>)[itemKey ?? ""];
+  const iconSrc = def?.icon ? `/assets/${def.icon}.webp` : `/assets/item_potion_${kind}.webp`;
+  return (
+    <button
+      aria-label={kind === "hp" ? "HP 물약" : "MP 물약"}
+      disabled={shown <= 0}
+      className={`relative flex h-10 w-10 touch-none select-none items-center justify-center rounded-full border-2 text-white shadow-lg transition-transform active:scale-90 sm:h-12 sm:w-12 ${
+        shown > 0 ? `bg-gradient-to-b ${tint}` : "border-white/20 bg-slate-700/70 opacity-50"
+      } ${tutGlow ? "ring-4 ring-amber-300/90 animate-pulse" : ""}`}
+      onPointerDown={(e) => {
+        e.preventDefault();
+        if (shown > 0) onDown();
+      }}
+    >
+      { }
+      <img
+        src={iconSrc}
+        alt=""
+        draggable={false}
+        onError={(e) => { const img = e.currentTarget; if (!img.dataset.r) { img.dataset.r = "1"; img.src = img.src + (img.src.includes("?") ? "&" : "?") + "r=" + Date.now(); } }} /* vc149 #8 캐시 버스팅 1회 재시도 */
+        className="h-5 w-5"
+        style={{ imageRendering: "pixelated" }}
+      />
+      <span className="absolute -bottom-0.5 right-0.5 rounded bg-slate-900/90 px-1 text-[8px] font-black leading-[13px] text-white">
+        {shown}
+      </span>
+      {!isTouchPotion && (
+        <span className="absolute -top-1 left-0.5 rounded bg-slate-900/80 px-0.5 text-[8px] font-black text-white/70">
+          {keyLabel(kind === "hp" ? kmHint.potHp : kmHint.potMp)}
+        </span>
+      )}
+    </button>
+  );
+}
+

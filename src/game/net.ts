@@ -1,0 +1,483 @@
+/**
+ * 멀티플레이 네트워크 레이어 (v1.7) — socket.io 싱글턴 래퍼
+ *  - 같은 서버(미리보기/로컬 dev)에 접속한 모든 플레이어 실시간 동기화
+ *  - 오프라인/APK 단독 실행 시 조용히 비활성 (게임플레이 무영향)
+ *
+ * v2.0 APK 대응:
+ *  - 네이티브 WebView는 same-origin(https://localhost)에 게임 서버가 없다.
+ *  - localStorage 'sertz.server.url' 에 서버 주소(https://… )를 지정하면 해당 서버로 접속해
+ *    웹 플레이어와 같은 서버 멀티플레이가 가능하다.
+ *  - 미지정이면 연결 시도 자체를 생략(완전 오프라인 — 재접속 루프/배터리 낭비 없음).
+ */
+import { Capacitor } from "@capacitor/core";
+import { stateHash, noteHashAck, desyncStats } from "./sim/stateHash"; // vc184 — 상태 해시 검증
+import { io, type Socket } from "socket.io-client";
+/* v1.4.20 — 멀티서버 분리: 게임 서버 해석 로직을 server.ts로 일원화 */
+import { GAME_SERVER, isGameServerHost, resolveEntryTarget, storedServerUrl } from "./server";
+/* v1.4.27-w1 (#멀티릴레이) — 소켓 미연결(②안 Vercel) 시 서버리스 릴레이로 위임.
+ *  채팅·파티를 HTTP 폴링(relay.ts → /api/chat·/api/party, GitHub-as-DB)으로 구동 —
+ *  소켓 없는 배포에서도 채팅·파티 창설/참여가 실제로 동작한다. UI·EventBus 흐름 불변. */
+import {
+  relayChatReady, relaySendChat, relaySetIdentity,
+  relayEnsureChatPoll, relayEnsurePartyPoll,
+  relayPartyCreate, relayPartyJoin, relayPartyLeave,
+  type RelayPartySnapshot,
+} from "./relay";
+/* v1.0.5-beta (vc134) — "웹에서 서로 안보임" 수정: 소켓 서버가 없는 배포(Vercel 웹·APK 기본)에서
+ *  공개 MQTT 브로커(wss)로 플레이어 프레즌스를 실시간 동기화한다. 채팅·파티는 기존 relay 경로 유지. */
+import { mpConnect, mpForce, type MqttBus } from "./mpMqtt";
+
+/** v3.0.8 — Electron(EXE 데스크톱) 감지: UA에 Electron 포함.
+ *  EXE는 자체 로컬 서버(same-origin)를 내장하므로 웹과 동일하게 동작하되,
+ *  서버 주소 저장 시 원격 멀티플레이 서버로 접속 가능해야 한다. */
+export function isElectron(): boolean {
+  if (typeof window === "undefined" || typeof navigator === "undefined") return false;
+  return /Electron/i.test(navigator.userAgent || "");
+}
+
+export type NetPlayer = {
+  id: string;
+  name: string;
+  lv: number;
+  cls: string | null;
+  x: number;
+  y: number;
+  flip: boolean;
+  moving: boolean;
+  /** v1.0.16 — GM 계정 표시: 이름표 금색 [GM] 접두사 + 캐릭터 황금 오라 (코스메틱 전용 플래그) */
+  gm?: boolean;
+  /** v1.0.13 피드백#12 — 친구 코드 (netJoin 페이로드의 code 릴레이 — 상대 클릭 정보창용.
+   *  전송 경로/서버 구현에 따라 없을 수 있어 옵셔널) */
+  code?: string;
+};
+
+export type NetChatMsg = {
+  id: string;
+  name: string;
+  text: string;
+  sys?: boolean;
+  t: number;
+};
+
+let socket: Socket | MqttBus | null = null;
+/* v4.0.0 — 마지막 파티 스냅샷 (게이트 팀워크 버프 판정용) */
+let lastParty: NetParty | null = null;
+
+/** v1.0.5-beta (vc134) — 현재 멀티플레이 트랜스포트 종류
+ *  "socket" = socket.io 서버(space-z/셀프호스트/미리보기) · "mqtt" = 공개 브로커 릴레이 · "none" = 오프라인.
+ *  파티·랭킹·GM 검증 같은 서버 로직이 필요한 기능은 "socket"에서만 동작한다. */
+export function netTransport(): "socket" | "mqtt" | "none" {
+  if (!socket) return "none";
+  return isMqtt(socket) ? "mqtt" : "socket";
+}
+
+function isMqtt(s: Socket | MqttBus): s is MqttBus {
+  return (s as { __mqtt?: boolean }).__mqtt === true;
+}
+
+/**
+ * 접속 대상 서버 URL 결정:
+ *  - 웹(게임 서버 오리진: localhost/*.space-z.ai) → undefined (same-origin: server.js socket.io)
+ *  - 웹(정적 배포: Vercel 등) → 게임 서버(GAME_SERVER) 직접 접속 (v1.4.20 멀티서버 분리)
+ *  - 웹 + localStorage 'sertz.server.url' → 그 주소 (수동 오버라이드)
+ *  - APK + localStorage 'sertz.server.url' → 그 주소 (멀티플레이 서버)
+ *  - APK + 미지정 → null (오프라인 모드 — 연결 시도 없음)
+ *  - EXE(Electron) + 저장 주소 → 그 주소 (원격 멀티플레이 서버)
+ *  - EXE(Electron) + 미지정 → undefined (same-origin: 내장 로컬 서버 — 싱글+로컬 멀티)
+ */
+/**
+ * v1.4.6 — export: /support 지원센터(문의·계정삭제)가 APK 정적 export에서도
+ *  원격 서버 API를 호출할 수 있도록 공개. 웹=same-origin(undefined→""), APK=저장된 https 서버.
+ */
+export function resolveServerUrl(): string | null | undefined {
+  if (typeof window === "undefined") return undefined;
+  const electron = isElectron();
+  if (Capacitor.isNativePlatform() || electron) {
+    /* v1.4.3 (#데이터보안) — 평문 http/wss 미허용: 저장 주소를 https/wss로 강제 승격
+     * v1.4.22 — 해석 결과가 빈 문자열(GAME_SERVER 미지정)이면 null로 정규화 —
+     *  오프라인 모드(연결 시도 자체 없음, 배터리 낭비 제거). */
+    const t = resolveEntryTarget(storedServerUrl(), electron ? undefined : null);
+    if (typeof t === "string") return t ? t : null;
+    return t;
+  }
+  /* v1.4.22 — 웹 분기 (②안: 멀티플레이 제외):
+   *  Vercel은 계정/거래소 API 본체지만 소켓 서버는 없다. GAME_SERVER가 비어 있으면
+   *  재시도 스톰 없이 즉시 오프라인 모드(null — 연결 시도 없음)로 확정한다.
+   *  멀티를 재개하면 NEXT_PUBLIC_GAME_SERVER만 채우면 이 경로가 부활한다. */
+  const stored = storedServerUrl();
+  if (stored) {
+    const t = resolveEntryTarget(stored, GAME_SERVER);
+    if (typeof t === "string") return t ? t : null;
+    return t;
+  }
+  if (isGameServerHost(window.location.hostname)) return undefined; // same-origin
+  return GAME_SERVER ? GAME_SERVER : null; // v1.4.22 — 미지정 = 오프라인
+}
+
+export function netConnect(): Socket | MqttBus | null {
+  if (typeof window === "undefined") return null;
+  try {
+    if (!socket) {
+      const url = resolveServerUrl();
+      const force = mpForce(); // "mqtt" | "off" | "" — 진단/E2E 오버라이드
+      /* v1.0.5-beta (vc134) — 소켓 서버가 없는 배포(Vercel 웹·APK 기본)는 더 이상 완전 오프라인이 아니다:
+       *  공개 MQTT 브로커 릴레이로 플레이어 동기화를 계속한다(웹에서 서로 안 보이던 문제 수정).
+       *  force="off"면 기존처럼 오프라인 확정, force="mqtt"면 소켓 서버가 있어도 MQTT 강제(진단용). */
+      if ((url === null || force === "mqtt") && force !== "off") {
+        socket = mpConnect();
+        if (socket) {
+          (socket as unknown as { __mqtt?: boolean }).__mqtt = true;
+          (window as unknown as { __SERTZ_NET__?: unknown }).__SERTZ_NET__ = socket;
+          console.info("[SERTZ] 멀티 릴레이(MQTT 공개 브로커) 경로로 접속 시도 — 웹 멀티플레이 활성");
+          return socket;
+        }
+        return null; // 브로커 생성 실패 — 오프라인
+      }
+      if (url === null) return null; // APK 오프라인 모드(force=off)
+      /* v3.3.0 (지시 #7 — "멀티 안되는 버그" 근본 수정):
+       *  기존 transports: ["websocket", "polling"] (웹소켓 우선)에서는 배포 환경의
+       *  FC/게이트웨이가 "가짜 101 업그레이드"(어떤 경로든 101 응답 후 프레임 전달 없음)를
+       *  반환해도 engine.io-client가 tryAllTransports 기본값(false)이라 폴링으로
+       *  절대 폴백하지 않고 무한 재시도 → 접속이 영원히 안 걸렸다.
+       *  → 폴링 우선으로 전환(폴링은 라이브 실측 2인 E2E 정상 — 플레이어 동기/채팅/파티/친구).
+       *    연결 안정화 후 엔진이 websocket으로 업그레이드를 시도하되 실패하면 폴링을 유지한다. */
+      socket = io(url, {
+        path: "/socket.io",
+        transports: ["polling", "websocket"],
+        tryAllTransports: true,
+        /* v1.4.19 (#화면깨짐) — 서버가 아예 없는 환경(정적 배포: Vercel export 등)에서
+         *  socket.io 기본값은 무한 재연결(reconnectionAttempts: Infinity)이라
+         *  polling 404 + websocket 308 시도가 몇 초마다 영원히 반복됐다.
+         *  모바일 브라우저에서 이 재시도 스톰이 프레임을 잠식해 "움직일 때마다
+         *  화면이 끊기는" 체감의 원인. 4회 실패 후 재귀를 완전히 멈춘다.
+         *  서버가 살아있는 배포( space-z/로컬/APK 지정 서버)에서는 첫 시도에서
+         *  연결되므로 영향 없음 — 일시적 단절 후 복구도 connect 성공 시 카운터 리셋. */
+        reconnectionAttempts: 4,
+        reconnectionDelay: 800,
+        reconnectionDelayMax: 4000,
+        timeout: 10000,
+      });
+      socket.on("reconnect_failed", () => {
+        /* 서버 없는 배포 환경 — 조용히 오프라인 모드 확정 (추가 시도 없음).
+         * netStatus().connected = false → 전송 계열 emit는 전부 가드에서 노옵 처리됨 */
+        console.info("[SERTZ] 멀티 서버 미발견 — 오프라인 모드로 전환 (재시도 중단)");
+      });
+      // E2E/디버그 훅 — 소켓 상태 실측용
+      (window as unknown as { __SERTZ_NET__?: unknown }).__SERTZ_NET__ = socket;
+    }
+    return socket;
+  } catch {
+    return null;
+  }
+}
+
+export function netId(): string | null {
+  return socket?.id ?? null;
+}
+
+export function netJoined(): boolean {
+  return !!socket?.connected;
+}
+
+/** UI 표시용 연결 상태 (v2.1) — v3.0.8: native에 EXE(Electron) 포함 */
+export function netStatus(): { connected: boolean; hasServer: boolean; native: boolean } {
+  const native = (typeof window !== "undefined" && Capacitor.isNativePlatform()) || isElectron();
+  let hasServer = true; // 웹/EXE = same-origin 서버 항상 존재
+  if (Capacitor.isNativePlatform()) hasServer = resolveServerUrl() != null || !!socket?.connected; // vc134 — MQTT 릴레이 연결도 서버 있음으로 표시
+  return { connected: !!socket?.connected, hasServer, native };
+}
+
+export type JoinInfo = {
+  name: string;
+  lv: number;
+  cls: string | null;
+  x: number;
+  y: number;
+  stage?: string;
+  code?: string;
+  /** v1.0.16 — 서버 인증 롤이 admin인 계정만 true (GM 이름표/오라 동기화 — 순수 코스메틱) */
+  gm?: boolean;
+  /** v1.4.8 (#4 보안) — GM 플래그 서버 검증용 세션 토큰 (netJoin에서 자동 첨부) */
+  token?: string;
+};
+
+/* v2.0 수정 (지시 #14 — 채팅 안됨 원인):
+ *  netJoin이 소켓 connect 이전에 호출되면 조용히 실패하고,
+ *  서버는 join하지 않은 소켓의 채팅을 폐기 → 채팅이 영원히 안 되는 버그.
+ *  → join을 대기열에 넣고 connect 이벤트에 자동 발송한다.
+ * v2.3 수정 (지시 #7 — 채팅 안됨 2차 원인):
+ *  socket.io 자동 재접속 시 서버 players 맵에서는 이미 삭제된 상태인데
+ *  클라가 join을 다시 보내지 않아 채팅/멀티가 조용히 죽는 문제.
+ *  → 마지막 join 정보(lastJoin)를 보관하고 매 connect마다 재발송한다. */
+let pendingJoin: JoinInfo | null = null;
+let lastJoin: JoinInfo | null = null;
+let joinHooked = false;
+
+function hookConnectFlush() {
+  const s = socket;
+  if (!s || joinHooked) return;
+  joinHooked = true;
+  s.on("connect", () => {
+    const info = pendingJoin ?? lastJoin;
+    pendingJoin = null;
+    if (info) s.emit("join", info); // 재접속 시에도 자동 재참여 — 채팅/멀티 자가 복구
+  });
+}
+
+export function netJoin(info: JoinInfo) {
+  /* v1.4.27-w3 (#채팅폴링) — 소켓 없는 배포(Vercel serverless)에서도 신원 주입은 필요하다.
+   *  릴레이 채팅/파티 발신자명이 여기서 세팅되는데, 기존엔 netConnect() null 즉시 리턴이
+   *  relaySetIdentity보다 앞에 있어 이름이 전부 "이름없음"으로 전송됐다. → 주입을 최우선으로. */
+  relaySetIdentity({ name: info.name, lv: info.lv, cls: info.cls });
+  const s = netConnect();
+  if (!s) return;
+  hookConnectFlush();
+  /* v1.4.8 (#4 보안) — join에 세션 토큰을 자동 첨부해 서버가 gm 플래그를 검증하게 한다 */
+  let token = "";
+  try { token = window.localStorage.getItem("sertz.auth.token") || ""; } catch { /* 무시 */ }
+  const payload = token ? { ...info, token } : info;
+  lastJoin = payload; // v2.3 — 재접속 재참여용 최신 상태 보관
+  pendingJoin = payload; // 최신 상태로 갱신 (리스폰/스테이지 이동 재합류 대응)
+  if (s.connected) {
+    s.emit("join", payload);
+    /* vc184 — 해시 응답 수신. 불일치는 세기만 하고 게임 상태를 되돌리지 않는다. */
+    s.on("hash:ack", (raw: { h?: number } = {}) => {
+      if (typeof raw?.h === "number") noteHashAck(desyncStats.lastLocal, raw.h);
+    });
+    pendingJoin = null;
+  }
+}
+
+/** 채팅 가능 여부 — 소켓 연결 또는 서버리스 릴레이 사용 가능 (v1.4.27-w1) */
+export function netChatReady(): boolean {
+  return !!socket?.connected || relayChatReady();
+}
+
+/** v1.4.27-w1 — 파티/채팅 기능 준비 완료(소켓 OR 릴레이). UI 게이트용 */
+export function multiReady(): boolean {
+  return netJoined() || relayChatReady();
+}
+
+export type NetState = {
+  x: number;
+  y: number;
+  flip: boolean;
+  moving: boolean;
+  lv: number;
+  cls: string | null;
+  stage?: string;
+};
+
+export function netState(st: NetState) {
+  if (socket?.connected) socket.emit("state", st);
+}
+
+/* vc184 (액터 결정 문서 ③) — 상태 해시 주기 전송.
+ *  서버가 같은 계산으로 대조해 ok/불일치를 돌려준다. 60틱(약 3초)마다 1회 —
+ *  매 프레임 보내면 패킷이 늘어 오히려 손해다. */
+export function netSendHash(st: { x: number; y: number; lv: number; cls: string | null; stage?: string }) {
+  if (socket?.connected) {
+    socket.emit("hash:check", { h: stateHash({ x: st.x, y: st.y, lv: st.lv, cls: st.cls, stage: st.stage }) });
+  }
+}
+
+/** desync 통계 조회 (디버그) */
+export function netDesync() {
+  return { ...desyncStats, rate: desyncStats.checks ? desyncStats.mismatches / desyncStats.checks : 0 };
+}
+
+export function netSendChat(text: string) {
+  /* vc134 — MQTT 릴레이 모드에선 채팅을 버스로 보내지 않는다(무시됨) → 기존 relay 경로 유지 */
+  if (socket?.connected && netTransport() === "socket") { socket.emit("chat", text); return; }
+  /* v1.4.27-w1 — 소켓 없는 배포: 릴레이 POST로 발송 (전송 직후 즉시 폴링 수신) */
+  void relaySendChat(text);
+}
+
+/* ================= v4.1.0 — 공격/스킬 동작 동기화 (파티원 공격 보임) =================
+ *  가벼운 코스메틱 이벤트만 전송 (좌표/종류/방향) — 데미지 판정은 각자 로컬 */
+
+export type NetAction = {
+  id?: string; // 서버가 채움 (보낸 사람 sock id)
+  kind: "atk" | "s1" | "s2" | "s3" | "s4" | "s5" | "s5b"; // vc146 — s5b = 제2궁극기
+  x: number;
+  y: number;
+  flip: boolean;
+  cls: string | null;
+};
+
+export function netAction(a: {
+  kind: NetAction["kind"];
+  x: number;
+  y: number;
+  flip: boolean;
+  cls: string | null;
+}) {
+  if (socket?.connected) socket.emit("act", a);
+}
+
+export function netOnAction(cb: (a: NetAction) => void): () => void {
+  const s = netConnect();
+  if (!s) return () => {};
+  const wrapped = (a: NetAction) => cb(a);
+  s.on("act", wrapped);
+  return () => s.off("act", wrapped);
+}
+
+/* ================= vc143 (#4 공유 보스 체력 릴레이) =================
+ *  공동 토벌전(praid)·파티 보스전에서 파티원들이 같은 보스 HP를 본다.
+ *  · bdmg — 비호스트가 자기 딜량을 릴레이 (스테이지 토픽)
+ *  · bhp  — 호스트가 권위 있는 HP 상태를 4Hz 브로드캐스트 (dead 플래그로 격파 통지)
+ *  호스트 선출: 동일 구역에 보이는 세션 id 중 최소값 (모두가 동일하게 계산 → 합의) */
+
+export type NetBossMsg = { id: string; n?: number; hp?: number; max?: number; dead?: boolean };
+
+export function netBossMsg(m: { n?: number; hp?: number; max?: number; dead?: boolean }) {
+  const s = netConnect();
+  if (!s || !s.connected) return;
+  s.emit("boss", m);
+}
+
+export function netOnBoss(cb: (m: NetBossMsg) => void): () => void {
+  const s = netConnect();
+  if (!s) return () => {};
+  const wrapped = (m: NetBossMsg) => cb(m);
+  s.on("boss", wrapped as never);
+  return () => s.off("boss", wrapped as never);
+}
+
+/** vc143 (#4) — 자기 세션 ID (소켓/MQTT 공통). netId()는 소켓 전용이라 MQTT 모드에서
+ *  null을 반환해 호스트 선출 합의가 깨진다 — MQTT 버스 id까지 커버하는 통합 조회 */
+export function netSelfId(): string | null {
+  if (socket?.id) return socket.id;
+  const b = mpConnect();
+  return b ? b.id : null;
+}
+
+/* ================= 파티 (v2.0 — 지시 #5 파티 & 보스 토벌) ================= */
+
+export type NetParty = {
+  id: string;
+  leader: string;
+  members: { id: string; name: string; lv: number; cls: string | null; online?: boolean }[];
+  max: number;
+};
+
+/* v1.4.27-w1 — 릴레이 파티: 등록된 UI 콜백으로 실패(null) 통지 → 위젯이 안내 문구 표시 */
+let relayPartyCb: ((p: NetParty | null) => void) | null = null;
+
+function relaySnapshotToNet(p: RelayPartySnapshot | null): NetParty | null {
+  if (!p) return null;
+  return {
+    id: p.id,
+    leader: p.leader,
+    max: p.max,
+    members: p.members.map((m) => ({ id: m.id, name: m.name, lv: m.lv, cls: m.cls, online: m.online })),
+  };
+}
+
+export function netPartyCreate() {
+  /* vc134 — 파티는 서버 상태(GitHub-DB relay) 관리 — MQTT 모드에선 소켓 이벤트 대신 relay 경로 */
+  if (socket?.connected && netTransport() === "socket") { socket.emit("party:create"); return; }
+  void relayPartyCreate().then((code) => { if (!code) relayPartyCb?.(null); });
+}
+
+export function netPartyJoin(partyId: string) {
+  if (socket?.connected && netTransport() === "socket") { socket.emit("party:join", partyId); return; }
+  void relayPartyJoin(partyId).then((ok) => { if (!ok) relayPartyCb?.(null); });
+}
+
+export function netPartyLeave() {
+  if (socket?.connected && netTransport() === "socket") { socket.emit("party:leave"); return; }
+  void relayPartyLeave();
+}
+
+export function netPartyChat(text: string) {
+  if (socket?.connected && netTransport() === "socket") { socket.emit("party:chat", text); return; }
+  /* v1.4.27-w1 — 릴레이 파티 채널로 발송 (relay 내부의 현재 파티 코드 사용) */
+  void relaySendChat(text, true);
+}
+
+export function netOnParty(cb: (p: NetParty | null) => void): () => void {
+  const wrapped = (p: NetParty | null) => {
+    lastParty = p; // v4.0.0 — 스냅샷 보관
+    cb(p);
+  };
+  const s = netConnect();
+  /* vc134 — MQTT 릴레이 모드에서도 파티는 GitHub-DB relay로 동작 (버스는 "party" 이벤트를 발생하지 않음) */
+  if (!s || netTransport() === "mqtt") {
+    /* v1.4.27-w1 — 소켓 없는 배포: 릴레이 폴링으로 스냅샷 수신 */
+    relayPartyCb = wrapped;
+    relayEnsurePartyPoll((p) => relayPartyCb?.(relaySnapshotToNet(p)));
+    return () => { relayPartyCb = null; };
+  }
+  s.on("party", wrapped as never);
+  return () => s.off("party", wrapped as never);
+}
+
+/** v4.0.0 — 마지막 파티 스냅샷 조회 (미파티 null) */
+export function netLastParty(): NetParty | null {
+  return lastParty;
+}
+
+/* ================= v4.0.0 — 랭킹 (무릉도장/게이트/옷장 던전 기록전) ================= */
+
+export type RankEntry = { name: string; score: number; lv: number };
+export type RankMode = "dojang" | "gate" | "closet" | "tower"; // v1.0.8 — 심연의 탑 랭킹 추가
+
+/** 기록 제출 — 서버 미연결 시 조용히 무시 (로컬 최고기록은 별도 localStorage 유지) */
+export function netRankSubmit(mode: RankMode, score: number, name: string, lv: number) {
+  if (!socket?.connected || score <= 0) return;
+  socket.emit("rank:submit", { mode, score, name: name.slice(0, 8), lv });
+}
+
+/** 랭킹 조회 요청 — 응답은 "rank:top" 이벤트로 */
+export function netRankTop(mode: RankMode) {
+  if (socket?.connected) socket.emit("rank:top", mode);
+}
+
+export function netOnRank(cb: (mode: RankMode, list: RankEntry[]) => void): () => void {
+  const s = netConnect();
+  if (!s) return () => {};
+  const wrapped = (m: string, list: RankEntry[]) => cb(m as RankMode, list);
+  s.on("rank:top", wrapped);
+  return () => s.off("rank:top", wrapped);
+}
+
+export function netAnnounceJob(cls: string) {
+  if (socket?.connected) socket.emit("job", cls);
+}
+
+/** 보스 토벌 상황 방송 (파티원 전체 — 지시 #5) */
+export function netAnnounceBoss(name: string, stage: string) {
+  if (socket?.connected) socket.emit("boss:announce", { name, stage });
+}
+
+/** 씬에서 등록 — 반환된 off 함수로 씬 종료 시 정리 */
+export function netOnPlayers(cb: (list: NetPlayer[]) => void): () => void {
+  const s = netConnect();
+  if (!s) return () => {};
+  s.on("players", cb);
+  return () => s.off("players", cb);
+}
+
+export function netOnChat(cb: (m: NetChatMsg) => void): () => void {
+  const s = netConnect();
+  /* v1.4.27-w1 — 소켓 유무와 무관하게 릴레이 폴링 상시 기동 (폴링 실패는 조용히 무시되고
+   *  소켓 채팅이 살아있는 배포에서는 릴레이가 404 등으로 조용히 실패 — 이중 등록 무해) */
+  relayEnsureChatPoll((m) => cb(m as NetChatMsg));
+  if (!s) return () => {};
+  s.on("chat", cb);
+  return () => s.off("chat", cb);
+}
+
+/* ================= 친구 (v2.1 — 친구코드·고유번호) ================= */
+
+export type NetFriendOnline = { code: string; name: string; lv: number; cls: string | null; stage: string };
+
+/** 서버 2초 하트비트로 전파되는 전체 접속자 요약 — 클라에서 내 친구 코드와 대조 */
+export function netOnFriends(cb: (list: NetFriendOnline[]) => void): () => void {
+  const s = netConnect();
+  if (!s) return () => {};
+  s.on("friends", cb);
+  return () => s.off("friends", cb);
+}

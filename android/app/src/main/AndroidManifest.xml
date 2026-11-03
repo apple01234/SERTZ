@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- v1.4.3 (#플레이콘솔) — xmlns:tools 추가: AD_ID 권한 제거 선언용 -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <application
+        android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/AppTheme">
+
+        <!-- v4.1.1 — AdMob 앱 ID 누락이 앱 부팅 FATAL 크래시의 원인
+             (Google Mobile Ads SDK는 ContentProvider 자동초기화 때 매니페스트 검증 —
+              미등록 시 IllegalStateException로 앱이 즉시 사망 → "앱 안열림")
+             v1.0.5-beta (vc129) — 수익화 전환: 본인 AdMob 앱 ID로 교체 (테스트 앱 ID 3940256099942544에서 전환).
+             광고 단위 실ID는 src/game/ads.ts ADMOB_REWARDED_ID에서 관리 -->
+        <meta-data
+            android:name="com.google.android.gms.ads.APPLICATION_ID"
+            android:value="ca-app-pub-5675573589406258~2954033564" />
+
+        <activity
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density"
+            android:name=".MainActivity"
+            android:label="@string/title_activity_main"
+            android:screenOrientation="sensorLandscape"
+            android:theme="@style/AppTheme.NoActionBarLaunch"
+            android:launchMode="singleTask"
+            android:exported="true">
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+        </activity>
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths"></meta-data>
+        </provider>
+    </application>
+
+    <!-- Permissions -->
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- v4.1.1 — 구글 플레이 인앱 결제(에메랄드 충전)용. 결제 시점에만 사용되며
+         부팅에는 영향 없음. 미등록 SKU는 ads.ts의 try/catch가 안내로 흡수 -->
+    <uses-permission android:name="com.android.vending.BILLING" />
+
+    <!-- v1.0.1-beta — 광고 실연동(AdMob 보상형)에 따라 AD_ID 권한 복원.
+         v1.4.3의 tools:node="remove"는 "AdMob SDK 미번들" 시절 잔재였으나
+         @capacitor-community/admob가 실제로 번들된 지 오래 — 제거 상태로 두면
+         Android 13+에서 광고 ID 미제공 → 광고 수익(eCPM) 하락.
+         Play Console '광고 ID' 선언에서는 "광고 ID 사용"(광고 목적)으로 답변할 것. -->
+    <uses-permission android:name="com.google.android.gms.permission.AD_ID" />
+</manifest>

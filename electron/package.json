@@ -1,0 +1,59 @@
+{
+  "name": "sertz-desktop",
+  "productName": "SERTZ",
+  "version": "1.4.43",
+  "description": "SERTZ (vc202) — Next.js+Phaser 게임 Windows 데스크톱 패키지 (정적 export 내장 + Vercel API 프록시)",
+  "author": "SERTZ <apple01234@users.noreply.github.com>",
+  "license": "UNLICENSED",
+  "private": true,
+  "main": "main.js",
+  "build": {
+    "appId": "com.sertz.myapp",
+    "productName": "SERTZ",
+    "electronVersion": "44.1.0",
+    "asar": false,
+    "compression": "normal",
+    "directories": {
+      "output": "dist",
+      "buildResources": "."
+    },
+    "files": [
+      "main.js",
+      "package.json",
+      "icon.png",
+      "game/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "icon.png",
+      "artifactName": "SERTZ-vc203-setup.${ext}"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowElevation": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "SERTZ",
+      "artifactName": "SERTZ-vc203-setup.${ext}"
+    },
+    "linux": {
+      "target": [
+        "dir"
+      ],
+      "icon": "icon.png",
+      "category": "Game"
+    }
+  },
+  "devDependencies": {
+    "electron": "^44.1.0",
+    "electron-builder": "^25.1.8"
+  }
+}

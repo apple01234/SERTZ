@@ -1,0 +1,126 @@
+name: EXE Build (SERTZ)
+
+# SERTZ Windows 데스크톱 빌드 — windows 러너 네이티브(rcedit 네이티브 동작 — 아이콘·버전·언인스톨러 완전판).
+#  · 트리거: 수동(workflow_dispatch) 또는 electron/**·본 파일 푸시
+#  · 산출물: SERTZ-vc{code}-setup.exe(NSIS 설치기 — build.gradle에서 자동 파싱) — v1.0.6 유저 지시 "exe 파일은 빌드하지 말고 setup-exe만": portable 폐지
+#    ※ 산출물명 동기 포인트 3곳: electron/package.json version + artifactName 2곳(win/nsis) + 본 파일 업로드 경로 (vc153까지 하드코딩·사후PATCH 부채 → vc154부터 근본 정리)
+#    → GitHub 릴리스 v1.0.9 자동 첨부(--clobber)
+#  · 게임 본체: APK와 동일한 정적 export(.next-apk)를 electron/game에 스테이징
+#    내장 서버가 정적 서빙 + /api/* 는 Vercel 프록시(main.js 참조)
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "electron/**"
+      - ".github/workflows/exe-build.yml"
+      # vc232 — 게임 코드가 바뀌면 EXE 도 다시 나와야 한다.
+      # 종전엔 electron/** 만 걸려 있어 src/ 수정만 푸시하면 EXE 가 갱신되지 않고
+      # 이전 버전(vc216) 설치본이 최신인 것처럼 남아 있었다.
+      - "src/**"
+      - "public/**"
+      - "package.json"
+      - "next.config.ts"
+      - "android/app/build.gradle"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      # v1.0.13 — 버전 자동 파싱 (build.gradle 단일 진실 공급원 — iOS 빌드와 동일 패턴)
+      - name: Parse version (build.gradle → versionName/versionCode)
+        shell: bash
+        run: |
+          set -e
+          VERSION=$(grep -oE 'versionName "[^"]+"' android/app/build.gradle | head -1 | sed 's/versionName "//; s/"$//')
+          CODE=$(grep -oE 'versionCode [0-9]+' android/app/build.gradle | head -1 | sed 's/versionCode //')
+          VERSION="${VERSION:-1.0.13}"
+          CODE="${CODE:-155}"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "CODE=$CODE" >> "$GITHUB_ENV"
+          echo "버전 파싱 결과: v${VERSION} (vc${CODE})"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # v1.0.16 — ignoreBuildErrors 제거로 Prisma Client 부재가 곧 타입 오류가 된다.
+      - name: Prisma generate
+        run: npx prisma generate
+
+      - name: Static export (APK_EXPORT=1) — serverless 라우트 7개 격리
+        shell: bash
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+        run: |
+          set -e
+          ROUTE_DIRS="admin auth market rank support chat party campaign iap"
+          mkdir -p .apk-hold/api-routes
+          for d in $ROUTE_DIRS; do
+            if [ -d "src/app/api/$d" ]; then mv "src/app/api/$d" ".apk-hold/api-routes/"; fi
+          done
+          restore() {
+            for d in $ROUTE_DIRS; do
+              if [ -d ".apk-hold/api-routes/$d" ]; then mv ".apk-hold/api-routes/$d" "src/app/api/$d"; fi
+            done
+            rm -rf .apk-hold
+          }
+          trap restore EXIT
+          APK_EXPORT=1 npx next build
+          node campaign-assets.mjs
+          test -f .next-apk/index.html || { echo "export 실패 — index.html 없음"; exit 1; }
+
+      - name: Stage electron/game (정적 게임 본체)
+        shell: bash
+        run: |
+          set -e
+          rm -rf electron/game
+          mkdir -p electron/game
+          cp -r .next-apk/. electron/game/
+          test -f electron/game/index.html
+
+      # v1.0.13 — electron 버전·artifactName 동기화 (vc 하드코딩 사고 클래스 근본 차단)
+      # v1.4.39 — sertzVersionCode 주입: 자동 업데이트가 원격 vc 와 비교할 로컬 값.
+      #   없으면 버전 문자열(1.4.38→38)로 폴백해 매번 "업데이트 있음" 오판이 난다.
+      - name: Sync version → electron/package.json (version + artifactName ×2 + versionCode)
+        shell: bash
+        run: |
+          set -e
+          sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"${VERSION}\"/" electron/package.json
+          sed -i "s/SERTZ-vc[0-9]*-setup\.\${ext}/SERTZ-vc${CODE}-setup.\${ext}/g" electron/package.json
+          node -e '
+            const fs = require("fs");
+            const p = "electron/package.json";
+            const j = JSON.parse(fs.readFileSync(p, "utf8"));
+            /* build 밖 최상위에 둔다 — electron-builder 의 build 스키마는
+             * 미지의 키를 거부할 수 있다(스키마 검증이 warningsAsErrors 와 얽힘). */
+            j.sertzVersionCode = Number(process.env.CODE);
+            fs.writeFileSync(p, JSON.stringify(j, null, 2) + "\n");
+          '
+          echo "--- 동기화 확인 ---"
+          grep -nE '"version"|artifactName|sertzVersionCode' electron/package.json
+
+      - name: Build EXE (nsis setup only, x64) — v1.0.6 portable 폐지
+        run: |
+          cd electron
+          npx electron-builder --win nsis --x64
+
+      - name: Attach to GitHub Release (v${{ env.VERSION }})
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release view "v${VERSION}" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || gh release create "v${VERSION}" --title "SERTZ v${VERSION} (vc${CODE})" --notes "EXE 빌드 자동 첨부 (vc${CODE})" --repo "$GITHUB_REPOSITORY"
+          gh release upload "v${VERSION}" "electron/dist/SERTZ-vc${CODE}-setup.exe" --clobber --repo "$GITHUB_REPOSITORY"
+          echo "--- release assets ---"
+          gh release view "v${VERSION}" --repo "$GITHUB_REPOSITORY" --json assets -q '.assets[].name'

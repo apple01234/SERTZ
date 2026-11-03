@@ -1,0 +1,948 @@
+import Phaser from "phaser";
+import type { WorldScene } from "../scenes/WorldScene";
+import { trackDamage } from "../classroom"; // v1.4.30 (#9) — 교실 모드 공유 보스 딜 합산
+import { DMG_PCT } from "../data";
+import { ENEMIES, type EnemyDef, type EnemyKey, CHAPTER_ELEM, elemAdvantage, elementReaction, ELEM_REACTION_META, ELEMENT_META, type ElemKey } from "../data";
+import { parseStage } from "../stages";
+import { mitigateEnemyDamage } from "../combat/defense"; // vc183 — 적 방어력
+import { actorStream, releaseActor } from "../sim/deterministic"; // vc183 — 액터별 결정론 난수
+import { FSM, type FSMState } from "../ai/FSM";
+import { spawnDissolve } from "../fx/DissolveFX"; // vc214 — 소멸 dissolve 셰이더
+import { decideMorale } from "../ai/morale"; // vc214 — Utility AI 사기 판단
+import { EnemyBrain, type BrainAction } from "../ai/enemyBrain"; // vc234 — BT 우선순위 분기
+/** 종별 물리/판정 크기 + 리스폰 버스트 색 */
+const BODY_CFG: Record<EnemyKey, { bw: number; bh: number; hw: number; hh: number; burst: number }> = {
+  wolf: { bw: 36, bh: 20, hw: 56, hh: 30, burst: 0x9aa0b4 },
+  minion: { bw: 18, bh: 24, hw: 30, hh: 32, burst: 0xb08ae8 },
+  spider: { bw: 26, bh: 16, hw: 38, hh: 26, burst: 0xe86a5a },
+  golem: { bw: 22, bh: 24, hw: 36, hh: 36, burst: 0xd8a86a },
+  frostwolf: { bw: 36, bh: 20, hw: 56, hh: 30, burst: 0xa8d8fa },
+  icegolem: { bw: 22, bh: 24, hw: 36, hh: 36, burst: 0xa8d8fa },
+  wraith: { bw: 18, bh: 24, hw: 30, hh: 32, burst: 0xbe96eb },
+  swampbeast: { bw: 22, bh: 24, hw: 36, hh: 36, burst: 0x8ade7a },
+  emberwolf: { bw: 36, bh: 20, hw: 56, hh: 30, burst: 0xffa05a },
+  firespirit: { bw: 22, bh: 24, hw: 36, hh: 36, burst: 0xffc06a },
+  runegolem: { bw: 22, bh: 24, hw: 36, hh: 36, burst: 0xffe08a },
+  helhound: { bw: 36, bh: 20, hw: 56, hh: 30, burst: 0xe86a8a },
+  // v3.0.2 — 신규 종 9종 (50 Monsters Pack, CC0)
+  x2_frog: { bw: 22, bh: 18, hw: 34, hh: 30, burst: 0x6ab0c8 },
+  x2_rat: { bw: 24, bh: 16, hw: 38, hh: 24, burst: 0xa8a0b8 },
+  x2_bat: { bw: 24, bh: 16, hw: 36, hh: 24, burst: 0x9a6ad8 },
+  x2_firebird: { bw: 24, bh: 20, hw: 36, hh: 30, burst: 0xffa05a },
+  x2_frostfly: { bw: 20, bh: 16, hw: 32, hh: 24, burst: 0xa8e0fa },
+  x2_snail: { bw: 24, bh: 18, hw: 36, hh: 26, burst: 0xc8b08a },
+  x2_stonegolem: { bw: 24, bh: 24, hw: 38, hh: 38, burst: 0xb0a890 },
+  x2_darkhound: { bw: 34, bh: 20, hw: 54, hh: 30, burst: 0x8a5aaa },
+  x2_reeffish: { bw: 24, bh: 18, hw: 36, hh: 28, burst: 0x5ab0d8 },
+  // v3.0.3 — 0x72 DungeonTileset II (itch.io, CC0) 신규 7종
+  x3_swampy: { bw: 24, bh: 16, hw: 38, hh: 26, burst: 0x7ade4a },
+  x3_imp: { bw: 20, bh: 18, hw: 34, hh: 30, burst: 0xff8a3a },
+  x3_icezombie: { bw: 20, bh: 22, hw: 32, hh: 32, burst: 0xa8e0fa },
+  x3_tinyzombie: { bw: 20, bh: 18, hw: 32, hh: 28, burst: 0x8ab07a },
+  x3_ogre: { bw: 28, bh: 26, hw: 44, hh: 42, burst: 0xd8a86a },
+  x3_chort: { bw: 20, bh: 20, hw: 34, hh: 34, burst: 0xe86450 },
+  x3_necromancer: { bw: 20, bh: 22, hw: 34, hh: 34, burst: 0x9a6ad8 },
+  // v3.0.4 — itch.io 0x72 팩 추가 6종
+  x3_maskedorc: { bw: 22, bh: 22, hw: 36, hh: 36, burst: 0xc86a4a },
+  x3_orcwarrior: { bw: 24, bh: 22, hw: 38, hh: 36, burst: 0x8aa85a },
+  x3_orcshaman: { bw: 22, bh: 22, hw: 36, hh: 36, burst: 0x6ac8a8 },
+  x3_wogol: { bw: 22, bh: 20, hw: 36, hh: 32, burst: 0xd86a8a },
+  x3_goblin: { bw: 20, bh: 16, hw: 32, hh: 26, burst: 0x8ade6a },
+  x3_bigzombie: { bw: 30, bh: 26, hw: 46, hh: 44, burst: 0x9ab08a },
+};
+
+/**
+ * FSM 문맥 — 매 프레임 거리 밴드 판정에 필요한 값 (객체 재사용 → GC 0)
+ * 거리 밴드: LONG(어그로 밖) / MID(어그로 이내) / SHORT(근접 공격 범위)
+ */
+interface AICtx {
+  enemy: Enemy;
+  player: PlayerLike;
+  dist: number;
+  toPlayer: Phaser.Math.Vector2;
+  vx: number;
+  vy: number;
+}
+
+/**
+ * 일반 몬스터 — 거리 기반 FSM 상태머신 AI (풀링 친화적 단순 구조)
+ *
+ *   wander(LONG: 배회) → chase(MID: 추격) → windup(SHORT: 예고 후 공격) → cooldown(물러남) → chase…
+ *
+ * 상태 전이 규칙과 모든 수치는 FSM 도입 전과 동일하다 (구조 개선 — 동작 보존).
+ * 상태 추가 예시: 원거리형 몬스터라면 chase와 windup 사이에 "keepDistance(사거리 유지)" 상태를
+ * FSM에 add() 한 줄로 끼워 넣으면 된다.
+ */
+export class Enemy extends Phaser.Physics.Arcade.Sprite {
+  declare scene: WorldScene;
+
+  def: EnemyDef;
+  /** v3.0.15 (#16) — 이 적의 원소 (챕터 테마 결정: 무스펠헤임 화염 등) */
+  readonly elem: ElemKey;
+  /** v3.0.6 — maxHP % 고정 피해 하한 (정예는 생성 후 상향 설정) */
+  dmgPct: number = DMG_PCT.mob;
+  hp: number;
+  maxHp: number;
+  alive = true;
+  /* ═══ vc236 (지시 #5 "게임이 전체적으로 ㅈㄴ 짐") — 적 발밑 그림자 ═══
+   *
+   *  종전엔 **플레이어에만** fx_ground_shadow 가 있어(WorldScene:1861),
+   *  같은 화면에서 플레이어는 땅에 붙고 적은 풀밭에 붙은 스티커처럼 떠 보였다.
+   *  접지감이 개체마다 다르면 "조잡하다"는 인상의 직접 원인이 된다.
+   *
+   *  hpBar 와 같은 소유 패턴을 쓴다: 스프라이트와 별개 씬 오브젝트이므로
+   *  destroy() 오버라이드에서 함께 정리하지 않으면 유령 그림자가 남는다.
+   *  (hpBar 가 그 정리 누락으로 "검은 네모"로 남았던 vc183 전례가 있다) */
+  private shadow: Phaser.GameObjects.Image | null = null;
+  // 근접 판정용 목표 크기 (스프라이트 실제 크기 기준)
+  hitW = 40;
+  hitH = 30;
+
+  /* v3.0.3 — 상태이상 (시간왜곡 필드 감속 / 이터널 루프 기절) */
+  private slowUntil = 0;
+  private slowMult = 1;
+  private stunUntil = 0;
+  /* vc142 (#4 탑 리워크) — 파워(속도) 배율: 층이 오를수록 몬스터 이속 증가 */
+  private spdMul = 1;
+  /* v1.4.16 — 원소 반응 쿨다운 (같은 적 1.6초 — 연타 폭발 방지) */
+  private lastReactAt = 0;
+  /** 돌진형 전용 — 돌진 방향 캐시 */
+  private chargeDir = new Phaser.Math.Vector2();
+
+  /* vc183 — 적 방어력 (EnemyDef.def / defPct). 보스 raid 규약과 동일한 이름을 쓴다. */
+  private get defDef(): number { return this.def.def ?? 0; }
+  private get defPctVal(): number { return (this.def as { defPct?: number }).defPct ?? 0; }
+
+  /* vc183 (액터 기반 결정 문서) — 이 개체 전용 난수 스트림.
+   *  전역 Math.random 을 쓰면 다른 적이 하나 더 스폰되는 것만으로 내 난수가 밀려
+   *  같은 상황 재현이 깨진다. 개체마다 독립 스트림을 가져야 결정론이 성립한다.
+   *  id 는 스폰 순번(인스턴스 고유) — 좌표를 쓰면 조금 움직이는 것만으로 스트림이 바뀐다. */
+  private static nextActorId = 1;
+  private readonly actorId = Enemy.nextActorId++;
+  private get rnd() { return actorStream(this.actorId); }
+
+  applySlow(mult: number, durMs: number) {
+    this.slowMult = Math.min(this.slowMult, mult);
+    this.slowUntil = Math.max(this.slowUntil, this.scene.time.now + durMs);
+  }
+
+  applyStun(durMs: number) {
+    this.stunUntil = Math.max(this.stunUntil, this.scene.time.now + durMs);
+  }
+
+  /* vc183 (극딜 문서) — 적 지속 피해(출혈/중독). 종전엔 적에게 도트를 거는 수단이
+   *  아예 없어, 4차 궁극기의 "출혈 중첩"이 플레이어 자신에게 걸리는 버그로 이어졌다.
+   *  dps 는 초당 피해, tick 은 500ms 고정(가독성 — 너무 잘게 쪼개면 데미지텍스트가 폭주). */
+  private dotUntil = 0;
+  private dotDps = 0;
+  private dotNext = 0;
+  applyDot(dps: number, durMs: number) {
+    this.dotDps = Math.max(this.dotDps, dps);   // 중첩은 강한 쪽으로 수렴(무한 폭주 방지)
+    this.dotUntil = Math.max(this.dotUntil, this.scene.time.now + durMs);
+  }
+  /** 도트 틱 처리 — preUpdate 에서 호출. 죽은 개체/만료는 즉시 무시. */
+  private tickDot(now: number) {
+    if (this.dotDps <= 0 || now > this.dotUntil) { this.dotDps = 0; return; }
+    if (now < this.dotNext) return;
+    this.dotNext = now + 500;
+    const dmg = Math.max(1, Math.round(this.dotDps * 0.5));
+    try {
+      this.takeDamage(dmg, new Phaser.Math.Vector2(0, 0), 0, false, true);
+    } catch { this.dotDps = 0; }
+  }
+
+  /* vc150 (#신규5) — 도주형 개체 (황금 몬스터): 공격하지 않고 플레이어로부터 빠른 속도로 도망간다 */
+  flee = false;
+
+  /** 감속 반영 실효 속도 */
+  private get effSpeed(): number {
+    return this.def.speed * this.spdMul * (this.scene.time.now < this.slowUntil ? this.slowMult : 1);
+  }
+
+  private modeTimer = 0;
+  /* v3.2.0 (#최적화) — 원거리 적 AI 스로틀 누적기 (tick 내 far 분기) */
+  private farAcc = 0;
+  private wanderDir = new Phaser.Math.Vector2();
+  private knockVec = new Phaser.Math.Vector2();
+  private homeX: number;
+  private homeY: number;
+  /** 리스폰용 원래 스폰 지점 (클래식 MMORPG — 죽은 자리가 아니라 스폰 지점에서 재생성) */
+  get spawnX() {
+    return this.homeX;
+  }
+  get spawnY() {
+    return this.homeY;
+  }
+  private hpBar: Phaser.GameObjects.Rectangle | null = null;
+  private hpBarBg: Phaser.GameObjects.Rectangle | null = null;
+  private hitFlash = 0;
+
+  /* v1.4.3 (작업3 최적화) — 애니 키 캐싱: 매 프레임 문자열 2회 생성(적 20기 × 60fps = 2,400회/s
+   *  GC 할당)을 생성 시 1회 계산으로 제거 — 시각 변화 0 */
+  private runAnimKey = "";
+  private idleAnimKey = "";
+
+  /* vc214 — Utility AI 사기 판단 상태. 스폰 시 한 번 만들고 매 결정 주기마다
+   * 갱신한다(틱마다 객체 생성 금지 — GC 스파이크 방지). */
+  private morale: "fight" | "retreat" | "flee" = "fight";
+  private moraleAcc = 0;
+  private readonly moraleCtx = { hp01: 1, dist: 0, aggro: 300, allies: 0, playerHp01: 1 };
+
+  private ai: FSM<AICtx>;
+  /** vc234 — BT 우선순위 분기 (죽음/유예/기절/게이트/사기 를 트리로 판정) */
+  private brain = new EnemyBrain();
+  /** vc234 — BT 에 넘길 사실(재사용 — 틱당 할당 없음) */
+  private readonly brainFacts = {
+    alive: true, dummy: false, prologueSafe: false, stunned: false,
+    hasGateTarget: false, distToPlayer: 0, aggro: 0, fleeing: false,
+  };
+  private aiCtx: AICtx;
+
+  /** 화면 표시명 (정예/시험 상대 등 변형 개체 — null이면 종명 사용) */
+  displayName: string | null = null;
+
+  /** v3.3.0 (지시 #6) — 무릉도장 훈련용 허수아비:
+   *  AI 없음(정지), 죽지 않음(HP 사실상 무한), 넉백 없음, 피해는 씬 기록에 누적 */
+  dummy = false;
+  /** v1.0.15 (피드백 #4) — 게이트 방어 진군 타깃.
+   *  지정되면 플레이어 어그로 반경 밖에서는 FSM을 우회해 이 좌표(게이트 코어)로 직진한다.
+   *  어그로 반경 내에 플레이어가 있으면 기존 전투 FSM으로 교전한다. */
+  gateTarget: { x: number; y: number } | null = null;
+  /** v1.0.2 (#허수아비) — 스쿼시 복귀 기준 스케일 (생성 시점 고정 — 누적 왜곡 차단) */
+  private baseSX = 1;
+  private baseSY = 1;
+  /** 허수아비 원색 (히트 플래시 후 복원용) */
+  private dummyTint: number | null = null;
+
+  /**
+   * v2.0 — 챕터/구역 난이도 배율 opts 지원
+   *   hp/atk/exp/gold: 기본 정의 대비 배율, scale: 스프라이트 확대, tint: 엘리트 틴트
+   */
+  constructor(
+    scene: WorldScene,
+    x: number,
+    y: number,
+    key: EnemyKey,
+    opts?: { hp?: number; atk?: number; exp?: number; gold?: number; scale?: number; tint?: number; displayName?: string; dummy?: boolean; abs?: boolean; spd?: number; flee?: boolean }
+  ) {
+    /* vc213 (#2 유령 애니메이션 복원) — 심연 유령은 10프레임 시트(wraith_spirit)를 쓴다.
+     *  기존 `${key}_idle0` 정적 텍스처는 프레임 합성본이라 모션이 없었다. 시트가
+     *  로드돼 있으면 해당 텍스처로 스폰하고, 없으면 기존 경로로 안전 폴백한다. */
+    super(scene, x, y, key === "wraith" && scene.textures.exists("wraith_spirit") ? "wraith_spirit" : `${key}_idle0`);
+    const base = ENEMIES[key];
+    /* v3.0.15 (#16) — 챕터 테마 원소 부여 */
+    this.elem = CHAPTER_ELEM[parseStage(scene.stageDef.key).ch] ?? "none";
+    /* v3.3.0 (지시 #6) — 허수아비 모드: AI/사망/넉백 전부 비활성 */
+    if (opts?.dummy) this.dummy = true;
+    /* vc142 (#4 탑 리워크) — 파워(속도) 배율 적용 (0.5~2.0 클램프) */
+    if (opts?.spd) this.spdMul = Phaser.Math.Clamp(opts.spd, 0.5, 2);
+    /* vc150 (#신규5) — 도주형 플래그 */
+    if (opts?.flee) this.flee = true;
+    /* vc142 (쿠소디아 프리즈 ②·탑 밸런스) — abs 플래그: hp/atk/exp/gold를 절대값으로 직접 사용.
+     * 기존엔 opts.hp를 무조건 base.hp의 배수로 해석해 탑/황금몬스터가 절대값을 넘기면
+     * base.hp × 절대값 = 수만 HP 괴물이 spawn → "게임이 멈춘 것처럼" 보였다. */
+    if (opts && (opts.hp !== undefined || opts.atk !== undefined || opts.exp !== undefined || opts.gold !== undefined)) {
+      this.def = opts.abs
+        ? {
+            ...base,
+            hp: Math.max(1, Math.round(opts.hp ?? base.hp)),
+            atk: Math.round((opts.atk ?? base.atk) * 10) / 10,
+            exp: Math.max(0, Math.round(opts.exp ?? base.exp)),
+            gold: [
+              Math.max(1, Math.round(opts.gold ?? base.gold[0])),
+              Math.max(1, Math.round((opts.gold ?? base.gold[1]) * 1.4)),
+            ],
+          }
+        : {
+            ...base,
+            hp: Math.round(base.hp * (opts.hp ?? 1)),
+            atk: Math.round(base.atk * (opts.atk ?? 1) * 10) / 10,
+            exp: Math.round(base.exp * (opts.exp ?? 1)),
+            gold: [
+              Math.max(1, Math.round(base.gold[0] * (opts.gold ?? 1))),
+              Math.max(1, Math.round(base.gold[1] * (opts.gold ?? 1))),
+            ],
+          };
+    } else {
+      this.def = base;
+    }
+    /* v1.4.3 (작업3 최적화) — 애니 키 생성 1회 캐싱 (tick에서 매 프레임 문자열 생성 제거) */
+    this.runAnimKey = `${this.def.key}-run`;
+    this.idleAnimKey = `${this.def.key}-idle`;
+    if (opts?.scale) this.setScale(opts.scale);
+    /* v1.0.2 (#허수아비) — 스쿼시 기준 스케일 고정 캡처. 기존엔 맞을 때마다 '현재' 스케일을 기준으로
+     * 잡아서, 연타로 복귀 트윈이 중단되면 중간 스케일이 새 기준이 돼 누적 부풀음/납작해짐 발생
+     * (무릉도장 허수아비가 한도 없이 납작해지던 근본 원인). 기준은 생성 시점 1회만 캡처한다 */
+    this.baseSX = this.scaleX;
+    this.baseSY = this.scaleY;
+    /* vc236 (지시 #5) — 적 발밑 그림자. 플레이어(WorldScene:1861)와 같은 텍스처·같은
+     *  depth 규약(yDepthFor - 0.05)을 써서 접지감을 통일한다.
+     *  허수아비(dummy)는 훈련장 전용 정적 오브젝트라 그림자를 생략한다.
+     *  알파는 플레이어(0.55)와 같은 값을 쓴다 — 규약이 다르면 같은 화면에서
+     *  적만 진하거나 옅어져 오히려 이질감이 생긴다. */
+    if (!opts?.dummy && scene.textures.exists("fx_ground_shadow")) {
+      this.shadow = scene.add
+        .image(x, y + 14, "fx_ground_shadow")
+        .setDepth(scene.yDepthFor(y) - 0.05)
+        .setAlpha(0.55)
+        .setScale(0.62, 0.5);
+    }
+    if (opts?.tint !== undefined) {
+      this.setTint(opts.tint);
+      if (opts.dummy) this.dummyTint = opts.tint; // v3.3.0 — 플래시 후 원색 복원용
+    }
+    if (opts?.displayName) this.displayName = opts.displayName;
+    this.hp = this.def.hp;
+    this.maxHp = this.def.hp;
+    if (this.dummy) {
+      this.hp = 9e15;
+      this.maxHp = 9e15;
+    }
+    this.homeX = x;
+    this.homeY = y;
+
+    /* ---------- 거리 기반 FSM 상태 등록 ---------- */
+    /* v3.0.3 — profile.ranged/charge에 따라 같은 뼈대라도 전투 방식이 완전히 달라진다:
+     *  근접형: chase → windup(예고) → 근접타
+     *  원거리형: chase(사거리 밖 접근, 너무 붙으면 후퇴) → windup(주문 시전) → 투사체 발사
+     *  돌진형: chase → windup(조준 예고) → chargeDash(직선 돌진) → cooldown */
+    this.aiCtx = {
+      enemy: this,
+      player: null as unknown as PlayerLike,
+      dist: 0,
+      toPlayer: new Phaser.Math.Vector2(),
+      vx: 0,
+      vy: 0,
+    };
+    this.ai = new FSM<AICtx>(this.aiCtx);
+    const prof = this.def.profile;
+    const wanderState: FSMState<AICtx> = {
+      name: "wander", // LONG — 어그로 밖: 배회
+      update: (c) => {
+        const e = c.enemy;
+        /* vc150 (#신규5) — 도주형(황금 몬스터): 어그로와 무관하게 항상 도주, 절대 공격 안 함.
+         *  벽에 안 몰리게 플레이어 반대방향 + 사인 지그재그를 섞는다 */
+        if (e.flee && c.player.hp > 0) {
+          const sway = Math.sin(this.scene.time.now / 260) * 0.45;
+          const dx = -c.toPlayer.x + -c.toPlayer.y * sway;
+          const dy = -c.toPlayer.y + c.toPlayer.x * sway;
+          const len = Math.max(0.0001, Math.hypot(dx, dy));
+          const spd = e.effSpeed * 1.35;
+          c.vx = (dx / len) * spd;
+          c.vy = (dy / len) * spd;
+          return undefined; // 어떤 상태로도 전이하지 않는다 (공격 불가)
+        }
+        if (e.modeTimer <= 0) {
+          e.modeTimer = Phaser.Math.Between(900, 2200);
+          if (e.rnd.chance(0.45)) e.wanderDir.set(0, 0);
+          else e.wanderDir.set(Phaser.Math.Between(-1, 1), Phaser.Math.Between(-1, 1)).normalize();
+        }
+        c.vx = e.wanderDir.x * e.effSpeed * 0.35;
+        c.vy = e.wanderDir.y * e.effSpeed * 0.35;
+        if (c.dist < e.def.aggro && c.player.hp > 0) {
+          e.modeTimer = 400;
+          return "chase";
+        }
+      },
+    };
+    const chaseState: FSMState<AICtx> = {
+      name: "chase", // MID — 어그로 이내: 추격
+      update: (c) => {
+        const e = c.enemy;
+        /* vc150 (#신규5) — 도주형은 추격 대신 계속 도주 (공격 전이 차단) */
+        if (e.flee && c.player.hp > 0) {
+          const spd = e.effSpeed * 1.35;
+          c.vx = -c.toPlayer.x * spd;
+          c.vy = -c.toPlayer.y * spd;
+          return undefined;
+        }
+        const rng = prof?.ranged;
+        if (rng) {
+          /* 원거리 캐스터 — 사거리 내 접근 시 시전, 너무 붙으면 뒤로 키팅 */
+          if (c.dist <= rng.range && c.player.hp > 0) {
+            e.modeTimer = 360;
+            return "windup";
+          }
+          if (c.dist < rng.range * 0.4) {
+            c.vx = -c.toPlayer.x * e.effSpeed;
+            c.vy = -c.toPlayer.y * e.effSpeed;
+            return;
+          }
+          c.vx = c.toPlayer.x * e.effSpeed;
+          c.vy = c.toPlayer.y * e.effSpeed;
+          if (c.dist > e.def.aggro * 1.5) {
+            e.modeTimer = 600;
+            return "wander";
+          }
+          return;
+        }
+        c.vx = c.toPlayer.x * e.effSpeed;
+        c.vy = c.toPlayer.y * e.effSpeed;
+        const meleeBand = prof?.charge ? 230 : 44;
+        if (c.dist <= meleeBand && c.player.hp > 0) {
+          e.modeTimer = prof?.charge ? 480 : 340;
+          return "windup"; // SHORT — 근접/돌진 조준: 예고 동작 진입
+        } else if (c.dist > e.def.aggro * 1.5) {
+          e.modeTimer = 600;
+          return "wander";
+        }
+      },
+    };
+    const windupState: FSMState<AICtx> = {
+      name: "windup", // SHORT — 공격 예고: 제자리 부들부들 / 원거리는 주문 시전 / 돌진형은 조준 플래시
+      enter: (c) => c.enemy.setTint(prof?.charge ? 0xffd0b0 : 0xffb0a0),
+      update: (c) => {
+        const e = c.enemy;
+        c.vx = Math.sin(e.scene.time.now * 0.06) * 12;
+        c.vy = 0;
+        if (e.modeTimer > 0) return;
+        const rng = prof?.ranged;
+        if (rng) {
+          // 원거리 — 투사체 발사 (사거리 이탈했으면 재추격)
+          if (c.dist <= rng.range * 1.1 && c.player.hp > 0) {
+            const ang = Math.atan2(c.player.y - e.y, c.player.x - e.x);
+            e.scene.fireEnemyProj({
+              x: e.x, y: e.y - 6,
+              angle: ang, speed: rng.projSpeed,
+              dmg: Math.round(e.def.atk * 1.1),
+              anim: rng.projAnim,
+              tint: e.burstTint,
+            });
+            e.modeTimer = 620;
+            return "cooldown";
+          }
+          e.modeTimer = 300;
+          return "chase";
+        }
+        if (prof?.charge) {
+          // 돌진형 — 조준 후 직선 돌진 (돌진 경로 스윕 판정은 chargeDash에서)
+          e.chargeDir.copy(c.toPlayer);
+          e.modeTimer = prof.charge.time;
+          return "chargeDash";
+        }
+        if (c.dist <= 58) {
+          c.player.takeDamage(e.def.atk, c.toPlayer, 0, 0); /* v1.4.41 (#8) — 유저 지시: 고정 % 피해는 '식인초·카오스 보스 특정 패턴'에만.
+         *  일반 몹 접촉에 4.5% 고정 하한이 걸려 밸런스가 무너져 있었다 → 수치 피해만. */
+          /* v3.0.3 — 접촉 공격 상태이상 (출혈/독/감속) */
+          const ap = prof?.apply;
+          if (ap && e.rnd.chance(ap.chance)) {
+            c.player.applyEnemyStatus(ap.kind, ap.dps, ap.dur);
+          }
+        }
+        e.modeTimer = 620;
+        return "cooldown";
+      },
+    };
+    const chargeDashState: FSMState<AICtx> = {
+      name: "chargeDash", // v3.0.3 — 돌진형 전용: 조준 방향 직선 돌진 (접촉 판정)
+      enter: (c) => {
+        c.enemy.setTint(0xff8060);
+        c.enemy.scene.sfxDash?.();
+      },
+      update: (c) => {
+        const e = c.enemy;
+        const prof2 = e.def.profile?.charge;
+        if (!prof2) return "chase";
+        c.vx = e.chargeDir.x * prof2.speed;
+        c.vy = e.chargeDir.y * prof2.speed;
+        // 돌진 접촉 판정 — 플레이어 원판
+        if (c.dist <= 40 && c.player.hp > 0) {
+          c.player.takeDamage(e.def.atk * 1.3, e.chargeDir, 0, 0); // v1.4.41 (#8) — 고정 % 폐지
+          const ap = e.def.profile?.apply;
+          if (ap && e.rnd.chance(ap.chance)) c.player.applyEnemyStatus(ap.kind, ap.dps, ap.dur);
+          e.modeTimer = 700;
+          e.scene.spawnBurstAt(e.x, e.y, 8, e.burstTint);
+          return "cooldown";
+        }
+        if (e.modeTimer <= 0) {
+          e.modeTimer = 700;
+          return "cooldown";
+        }
+      },
+    };
+    const cooldownState: FSMState<AICtx> = {
+      name: "cooldown", // 공격 후 — 살짝 물러남
+      enter: (c) => c.enemy.clearTint(),
+      update: (c) => {
+        c.vx = -c.toPlayer.x * c.enemy.effSpeed * 0.3;
+        c.vy = -c.toPlayer.y * c.enemy.effSpeed * 0.3;
+        if (c.enemy.modeTimer <= 0) {
+          c.enemy.modeTimer = 0;
+          return "chase";
+        }
+      },
+    };
+    this.ai.add(wanderState, chaseState, windupState, cooldownState);
+    if (prof?.charge) this.ai.add(chargeDashState);
+    this.ai.set("wander");
+
+    scene.add.existing(this);
+    scene.physics.add.existing(this);
+    this.setDepth(9);
+    const cfg = BODY_CFG[key];
+    /* v1.4.10 — 히트박스와 스프라이트 모양 정확히 맞추기 (유저 지시):
+     *  Phaser 4 Body.setSize는 인자에 스프라이트 스케일을 자동 곱하고(width = sourceWidth×scale),
+     *  본 위치 공식(x + scale×(offset−origin))이 오프셋에도 스케일을 곱하므로
+     *  물리 바디는 원본 cfg 그대로가 스케일 스폰(정예 1.55·훈련용 0.8 등)에서도 정중앙·발정렬 유지.
+     *  반면 근접 피격 판정 hitW/hitH는 수동 곱셈 값이라 스케일이 빠져 있었다 —
+     *  정예 몬스터의 "시각 몸통보다 히트박스가 작다(때려도 안 맞는다)"의 직접 원인 → 스케일 곱 */
+    this.body!.setSize(cfg.bw, cfg.bh);
+    this.body!.setOffset((this.width - cfg.bw) / 2, this.height - cfg.bh - 2);
+    // 추격/넉백으로 맵 밖으로 밀려 나가지 않도록 경계 충돌
+    (this.body as Phaser.Physics.Arcade.Body).setCollideWorldBounds(true);
+    this.play(`${key}-idle`);
+    // 스프라이트 크기에 맞춘 근접 판정 크기 (v1.4.10 — 정예 등 스케일 스폰분 반영)
+    this.hitW = cfg.hw * this.scaleX;
+    this.hitH = cfg.hh * this.scaleY;
+  }
+
+  /** 리스폰 버스트 색 (월드 씬에서 사용) */
+  get burstTint() {
+    return BODY_CFG[this.def.key].burst;
+  }
+
+  /** 씬에서 매 프레임 호출 */
+  tick(dt: number, player: PlayerLike) {
+    if (!this.alive) return;
+    /* vc183 — 지속 피해(출혈/중독) 틱. 허수아비 포함 모든 개체에 적용된다. */
+    this.tickDot(this.scene.time.now);
+    /* v3.3.0 (지시 #6) — 허수아비: AI 전면 비활성 (제자리 정지, 애니도 idle 고정) */
+    if (this.dummy) {
+      this.setVelocity(0, 0);
+      this.hitFlash = Math.max(0, this.hitFlash - dt);
+      if (this.hitFlash <= 0 && this.tintTopLeft !== 0xffffff) {
+        if (this.dummyTint !== null) this.setTint(this.dummyTint);
+        else this.clearTint();
+      }
+      if (this.anims.currentAnim?.key !== `${this.def.key}-idle`) this.play(`${this.def.key}-idle`);
+      if (this.anims.isPaused) this.anims.resume();
+      return;
+    }
+    this.modeTimer -= dt;
+    this.hitFlash = Math.max(0, this.hitFlash - dt);
+    if (this.hitFlash <= 0 && this.tintTopLeft !== 0xffffff) this.clearTint();
+    // v2.0 프롤로그 보호 — 인트로/입장 유예 중 어그로·공격 차단 (제자리 대기)
+    if (this.scene.isPrologueSafe) {
+      this.setVelocity(0, 0);
+      if (this.anims.currentAnim?.key !== `${this.def.key}-idle`) this.play(`${this.def.key}-idle`);
+      this.syncHpBar();
+      return;
+    }
+
+    /* 넉백 감쇠 (죽은 뒤 제외 — destroy 후 접근 방지) */
+    if (this.active) this.knockVec.scale(Math.pow(0.0016, dt / 1000));
+
+    // FSM 문맥 갱신 — 거리/방향을 1회 계산해 상태들과 공유
+    const c = this.aiCtx;
+    c.player = player;
+    c.dist = Phaser.Math.Distance.Between(this.x, this.y, player.x, player.y);
+    c.toPlayer.set(player.x - this.x, player.y - this.y).normalize();
+    c.vx = 0;
+    c.vy = 0;
+
+    /* ══════════════════════════════════════════════════════════════════
+     * vc234 — 우선순위 분기를 BT 로 위임한다.
+     *
+     * [종전] tick() 안에 if/return 4겹이 순서대로 늘어서 있었다:
+     *   기절 → 프롤로그 유예 → 게이트 진군 → 사기 이탈 → FSM
+     *  각 분기가 함수 앞쪽을 차지해, 새 규칙을 넣을 때마다 "어디에 끼워야
+     *  다른 분기를 가리지 않는가"를 사람이 판단해야 했다.
+     *
+     * [지금] 위 순서가 EnemyBrain 의 Selector 자식 순서로 그대로 표현된다.
+     *  트리 모양이 곧 우선순위 문서이고, ReactiveSequence 라서 상위 조건이
+     *  깨지면(예: 유예 종료, 플레이어 접근) 즉시 하위 분기로 내려온다.
+     *
+     *  판정만 위임하고 실행은 아래에서 그대로 한다 — 부수효과(애니·틴트·
+     *  HP바)를 트리 안에 넣으면 Running 재개 의미와 충돌하기 때문.
+     * ══════════════════════════════════════════════════════════════════ */
+    const stunned = this.scene.time.now < this.stunUntil;
+    const f = this.brainFacts;
+    f.alive = this.alive;
+    f.dummy = !!this.dummy;
+    f.prologueSafe = !!this.scene.isPrologueSafe;
+    f.stunned = stunned;
+    f.hasGateTarget = !!this.gateTarget;
+    f.distToPlayer = c.dist;
+    f.aggro = this.def.aggro;
+    /* 사기 판단은 아래에서 갱신되므로, 이번 틱 판정에는 직전 값을 쓴다.
+     * (한 틱 지연은 180ms 판단 주기 안에서 무시할 수 있다) */
+    f.fleeing = this.morale !== "fight" && !this.flee && this.hp > 0;
+    const decision: BrainAction = this.brain.think(f, dt);
+
+    if (decision === "halt") {
+      /* 정지 계열 — 원인별 표현만 다르게 유지한다(종전 동작 보존). */
+      if (stunned) {
+        this.setVelocity(0, 0);
+        if (this.anims.isPlaying) this.anims.pause();
+        this.setTint(0xb0a0ff);
+      } else {
+        this.setVelocity(0, 0);
+        if (this.anims.currentAnim?.key !== `${this.def.key}-idle`) this.play(`${this.def.key}-idle`);
+        if (this.anims.isPaused) this.anims.resume();
+      }
+      this.syncHpBar();
+      return;
+    }
+    if (stunned) {
+      /* 기절이 방금 풀린 프레임 — 애니/틴트 복구 */
+      if (this.anims.isPaused) this.anims.resume();
+      this.clearTint();
+    }
+
+    /* v1.0.15 (피드백 #4) — 게이트 방어 진군: 코어를 향해 달려온다.
+     *  기존에는 어그로 밖 몬스터가 제자리 배회만 해 "몬스터가 게이트로 안 달려오는" 버그였다
+     *  (tickGate의 340px 보정은 같은 프레임 FSM 속도에 덮여 무력).
+     *  FSM 원거리 스로틀보다 앞단에서 처리해 화면 밖 몬스터도 멈추지 않고 진군한다.
+     *  플레이어가 어그로 반경 내로 다가오면 그때는 기존 전투 FSM으로 교전한다. */
+    if (decision === "gate" && this.gateTarget) {
+      const gdx = this.gateTarget.x - this.x;
+      const gdy = this.gateTarget.y - this.y;
+      const gd = Math.hypot(gdx, gdy) || 0.0001;
+      if (gd > 64) {
+        /* 진군 속도 — 기본 이동속도의 1.2배 (게이트를 향한 꾸준한 압박) */
+        c.vx = (gdx / gd) * this.effSpeed * 1.2;
+        c.vy = (gdy / gd) * this.effSpeed * 1.2;
+        if (this.runAnimKey && this.anims.currentAnim?.key !== this.runAnimKey) this.play(this.runAnimKey, true);
+      } else {
+        /* 코어 바로 앞 도달 — 자폭 판정(tickGate dist<78)을 기다리며 정지 */
+        if (this.idleAnimKey && this.anims.currentAnim?.key !== this.idleAnimKey) this.play(this.idleAnimKey, true);
+      }
+      this.setVelocity(c.vx + this.knockVec.x, c.vy + this.knockVec.y);
+      this.syncHpBar();
+      return;
+    }
+
+    /* v3.2.0 (#최적화) — 원거리 적 AI 스로틀:
+     *  플레이어에서 950px 밖(화면 밖)인 적은 FSM을 5Hz로만 갱신한다.
+     *  광역 맵에 적 40~80기가 60Hz FSM을 돌리는 게 모바일 프레임 드롭의 주범.
+     *  넉백 감쇠/속도 적용은 매 프레임 유지해 움직임이 끊기지 않는다.
+     *  v1.2.1 (#4 최적화 x3) — 3단 확장: 1400px 밖은 1.25Hz(800ms)로 2중 스로틀.
+     *  원거리 몬스터는 어차피 어그로 획득 범위 밖이라 화면 밖 2중 스로틀은 체감 영향 0. */
+    if (c.dist > 1400) {
+      this.farAcc += dt;
+      if (this.farAcc >= 800) {
+        this.ai.update(this.farAcc);
+        this.farAcc = 0;
+        this.setVelocity(this.knockVec.x, this.knockVec.y);
+        this.syncHpBar();
+        return;
+      }
+      this.setVelocity(this.knockVec.x, this.knockVec.y);
+      return;
+    }
+    if (c.dist > 950) {
+      this.farAcc += dt;
+      if (this.farAcc >= 200) {
+        this.ai.update(this.farAcc);
+        this.farAcc = 0;
+        this.setVelocity(this.knockVec.x, this.knockVec.y);
+        this.syncHpBar();
+        return;
+      }
+      this.setVelocity(this.knockVec.x, this.knockVec.y);
+      return;
+    }
+
+    /* vc214 — Utility AI 사기 판단. 기존엔 `opts.flee` 정적 플래그(황금 몬스터)만
+     * 도주가 가능했고 일반 몬스터는 체력 1 이어도 계속 돌진했다. 이제 매 프레임이
+     * 아니라 **결정 주기(0.35초)** 로만 채점해 비용을 억제하고(FSM 은 매 프레임 유지),
+     * 결과가 flee/retreat 일 때만 FSM 앞에서 이동을 덮어쓴다.
+     * 허수아비·도주형(황금)은 기존 동작을 그대로 유지하기 위해 건드리지 않는다. */
+    this.moraleAcc += dt;
+    if (this.moraleAcc >= 350) {
+      this.moraleAcc = 0;
+      const mctx = this.moraleCtx;
+      mctx.hp01 = Math.max(0, Math.min(1, this.hp / Math.max(1, this.maxHp)));
+      mctx.dist = c.dist;
+      mctx.aggro = this.def.aggro;
+      mctx.playerHp01 = Math.max(0, Math.min(1, c.player.hp / Math.max(1, (c.player as { maxHp?: number }).maxHp ?? 1)));
+      // 내 주변 같은 편 수 — 매번 배열을 만들지 않고 씬의 적 목록을 직접 순회
+      let allies = 0;
+      for (const other of this.scene.enemies) {
+        if (other === this || !other.alive) continue;
+        if (Phaser.Math.Distance.Squared(other.x, other.y, this.x, this.y) < 220 * 220) {
+          allies++;
+          if (allies >= 3) break; // 3 이상은 더 셀 필요 없다
+        }
+      }
+      mctx.allies = allies;
+      this.morale = decideMorale(mctx, this.morale);
+    }
+
+    /* 사기 판단이 후퇴/도주면 FSM 을 건너뛰고 이탈 이동을 적용한다.
+     * (attack/windup 같은 공격 상태가 남아 있으면 이동이 상쇄되므로 강제 해제) */
+    if (decision === "flee") {
+      const away = this.morale === "flee" ? 1.0 : 0.55;
+      const spd = this.effSpeed * away;
+      const len = Math.max(0.0001, Math.hypot(c.toPlayer.x, c.toPlayer.y));
+      // 도주는 반대 방향 + 약한 지그재그(벽에 몰리지 않게)
+      const sway = this.morale === "flee" ? Math.sin(this.scene.time.now / 240) * 0.5 : 0;
+      const dx = -c.toPlayer.x / len + (-c.toPlayer.y / len) * sway;
+      const dy = -c.toPlayer.y / len + (c.toPlayer.x / len) * sway;
+      const dl = Math.max(0.0001, Math.hypot(dx, dy));
+      c.vx = (dx / dl) * spd;
+      c.vy = (dy / dl) * spd;
+      if (this.ai.current !== "chase" && this.ai.current !== "wander") this.ai.set("wander");
+      this.setVelocity(c.vx + this.knockVec.x, c.vy + this.knockVec.y);
+      if (Math.abs(c.vx) > 0.01) this.setFlipX(c.vx > 0);
+      this.syncHpBar();
+      return;
+    }
+
+    this.ai.update(dt);
+
+    this.setVelocity(c.vx + this.knockVec.x, c.vy + this.knockVec.y);
+
+    // 애니메이션 & 방향 — v1.4.3: 키 캐시 사용 (매 프레임 문자열 생성 제거)
+    const moving = Math.abs(c.vx) + Math.abs(c.vy) > 12;
+    if (moving && this.anims.currentAnim?.key !== this.runAnimKey) this.play(this.runAnimKey);
+    else if (!moving && this.anims.currentAnim?.key !== this.idleAnimKey) this.play(this.idleAnimKey);
+    if (c.vx !== 0) this.setFlipX(c.vx > 0); // v3.0.10 — 몬스터 시트(32rogues/0x72 등) 기본 왼쪽 향함 → 오른쪽 이동 시 flip
+
+    // HP바 — v1.0.16 최적화: 풀피(숨김 상태)면 매 프레임 재배치를 건너뛴다
+    //  (적 20마리 × 60fps 중 대부분이 풀피 — Rectangle 2개 setPosition 절감)
+    this.syncHpBar();
+  }
+
+  /** HP바 표시/위치 갱신 — 풀피(비가시)면 스킵 (v1.0.16 최적화 공용 경로) */
+  private syncHpBar() {
+    /* vc236 (지시 #5) — 그림자 위치·depth 동기화. hpBar 와 달리 **항상** 보이므로
+     *  풀피 스킵 경로에 넣지 않고 맨 앞에서 처리한다. yDepthFor 를 매 프레임 다시
+     *  계산해야 적이 건물·플레이어 앞뒤로 지날 때 그림자도 같이 가려진다. */
+    if (this.shadow) {
+      /* vc236 (지시 #5) — 매 프레임 setPosition 은 필요하지만 setDepth 는 **값이
+       *  바뀔 때만** 호출한다. Phaser 의 setDepth 는 깊이 정렬을 유발하므로
+       *  적 20마리 × 60fps 로 매 프레임 호출하면 낭비다(그림자는 y 만 따라가면 된다). */
+      this.shadow.setPosition(this.x, this.y + 14);
+      const d = this.scene.yDepthFor(this.y) - 0.05;
+      if (this.shadow.depth !== d) this.shadow.setDepth(d);
+    }
+    if (this.hpBar && this.hpBarBg) {
+      const show = this.hp < this.maxHp;
+      if (!show) {
+        if (this.hpBarBg.visible) this.hpBarBg.setVisible(false);
+        if (this.hpBar.visible) this.hpBar.setVisible(false);
+        return;
+      }
+      const py = this.y - this.displayHeight / 2 - 8;
+      this.hpBarBg.setVisible(true).setPosition(this.x, py);
+      this.hpBar.setVisible(true).setPosition(this.x, py);
+      this.hpBar.width = Math.max(1, (24 * this.hp) / this.maxHp);
+    }
+  }
+
+  takeDamage(dmg: number, dir: Phaser.Math.Vector2, knock: number, crit = false, noReact = false) {
+    if (!this.alive) return;
+    this.scene.notePlayerHit?.(dmg); // v1.1.5 (#개편 통계) — 최고 타격 기록
+    /* v3.3.0 (지시 #6) — 허수아비: 피해 누적만 하고 절대 죽지 않는다 (넉백/HP바 없음) */
+    if (this.dummy) {
+      const atkElemD = this.scene.playerRef?.attackElem ?? "none";
+      const advD = elemAdvantage(atkElemD, this.elem);
+      const dealtD = advD === 1 ? dmg : Math.max(1, Math.round(dmg * advD));
+      this.scene.addDojangScore(dealtD);
+      this.hitFlash = 90;
+      this.setTint(0xffffff).setTintMode(Phaser.TintModes.FILL);
+      this.scene.spawnDamageText(this.x, this.y - 20, dealtD, crit);
+      this.scene.spawnHitSpark(this.x, this.y, crit);
+      if (crit) {
+        this.scene.spawnShockwave(this.x, this.y, 0xffd76a, 1.05);
+        this.scene.spawnCritSplat(this.x, this.y);
+        /* v1.1.9 (#개편 B22) — 치명타 히트스톱 연장.
+         *  종전엔 크리티컬도 일반 타격과 같은 26ms(=기본) 정지였다.
+         *  크리는 이 게임에서 "맛"의 핵심인데 손맛이 구분되지 않았다.
+         *  55ms로 늘리고 약한 흔들림을 더해 확실히 구분되게 한다. */
+        this.scene.hitStop?.(55);
+        this.scene.doShake?.(70, 0.0016);
+      }
+      /* v1.0.2 (#허수아비) — 고정 기준(baseSX/SY) 기준으로만 스쿼시: 아무리 연타해도 기준선 불변 */
+      const sxD = this.baseSX;
+      const syD = this.baseSY;
+      this.scene.tweens.killTweensOf(this);
+      this.setScale(sxD * 1.12, syD * 0.9);
+      this.scene.tweens.add({ targets: this, scaleX: sxD, scaleY: syD, duration: 100, ease: "Back.out" });
+      return;
+    }
+    /* v3.0.15 (#16) — 원소 상성: 플레이어 공격 원소 vs 이 적의 원소.
+     *  유리 +25% (원소색 데미지 텍스트 "약점!") / 불리 -15% / 어둠끼리 서로 저항 */
+    const atkElem = this.scene.playerRef?.attackElem ?? "none";
+    /* v1.4.30 (#2 사냥/보스 밸런스) — 사냥 특화 직업(스카이로드·이터널·블레이드마스터 등)
+     *  체인 합산 mobDmgPct만큼 일반 몬스터에게 주는 피해 증가 */
+    const mobSpec = (this.scene.playerRef as unknown as { mobDmgBonus?: number } | null)?.mobDmgBonus ?? 0;
+    if (mobSpec > 0) dmg = Math.max(1, Math.round(dmg * (1 + mobSpec / 100)));
+    const adv = elemAdvantage(atkElem, this.elem);
+    const weak = adv > 1;
+    /* v1.4.16 — 원소 반응: 유리 조합 + 쿨다운 통과 시 반응 발동 (데미지 보너스 + 고유 효과/연출).
+     *  스플래시 피해(noReact)로는 연쇄되지 않는다 — 폭발 도미노 방지. */
+    const now = this.scene.time.now;
+    const reactKey = noReact ? null : elementReaction(atkElem, this.elem);
+    const reacted = !!reactKey && now - this.lastReactAt > 1600;
+    if (reacted) this.lastReactAt = now;
+    const R = reactKey ? ELEM_REACTION_META[reactKey] : null;
+    /* vc183 (지시 — 적에게도 방어력) — 원소 상성까지 반영한 뒤 적 방어력을 뺀다.
+     *  정액 감산 후 비율 감소 2단계: 초반엔 "딱딱한 놈"이 체감되고,
+     *  후반 공격력 인플레에도 defPct 가 비율로 계속 유효하다.
+     *  최소 1 보장 — 방어력이 공격력을 넘어 0피해(무적 벽)가 되는 것을 막는다. */
+    const raw = reacted && R ? Math.max(1, Math.round(dmg * adv * R.dmgMul))
+      : adv === 1 ? dmg : Math.max(1, Math.round(dmg * adv));
+    const dealt = mitigateEnemyDamage(raw, { def: this.defDef, defPct: this.defPctVal });
+    trackDamage(dealt); // v1.4.30 (#9) — 교실 모드: 공유 보스 레이드 딜 합산 (교실 밖 no-op)
+    this.hp -= dealt;
+    this.hitFlash = 90;
+    // 타격감: 화이트 플래시 (기존 빨간 틴트보다 명확한 피격 피드백)
+    this.setTint(0xffffff).setTintMode(Phaser.TintModes.FILL);
+    this.knockVec.set(dir.x * knock, dir.y * knock);
+    this.scene.spawnDamageText(
+      this.x, this.y - 20, dealt, crit || weak,
+      weak ? ELEMENT_META[this.elem].color : undefined,
+      weak ? "약점" : undefined
+    );
+    /* v1.4.16 — 반응 발동: 반응명 텍스트 + 반응 연출 + 상태이상/스플래시 */
+    if (reacted && R && reactKey) {
+      this.scene.spawnElementReaction(this.x, this.y, reactKey);
+      if (R.stunMs) this.applyStun(R.stunMs);
+      if (R.slowMult && R.slowMs) this.applySlow(R.slowMult, R.slowMs);
+      this.scene.applyReactionSplash(this.x, this.y, dealt, R.splashMul, this, atkElem);
+    }
+    this.scene.spawnHitSpark(this.x, this.y, crit);
+    /* v1.2.0 (#10 타격감) — 히트스톱: 일반 26ms · 크리티컬 55ms + 미세 카메라 흔들림.
+     *  플래시·스쿼시·넉백과 함께 "얻어맞은 순간이 멈춘다"는 손맛을 만드는 핵심 장치 */
+    this.scene.hitStop(crit ? 55 : 26);
+    this.scene.doShake(crit ? 70 : 30, crit ? 0.0022 : 0.0009); // v1.4.8 — doShake 게이트 우회 수정 (v1.2.1 절전 모드에서도 쉐이크 발생 버그)
+    /* v4.8.0 — 강한 순간 충격파 링: 크리티컬 금색 / 약점 원소색 (WebGL 전용, Canvas 무시) */
+    if (crit) { this.scene.spawnShockwave(this.x, this.y, 0xffd76a, 1.1); this.scene.spawnCritSplat(this.x, this.y); this.scene.driveFx?.critBurst(this.x, this.y); }
+    else if (weak) this.scene.spawnShockwave(this.x, this.y, ELEMENT_META[this.elem].hex, 0.85);
+    // v2.2 타격감 — 스쿼시(눌림) 반동: 맞은 순간 납작해졌다 복귀
+    /* v1.0.2 (#허수아비) — 일반 몹도 동일 근본 수정: 고정 기준 스케일로 복귀 (누적 왜곡 차단) */
+    const sx = this.baseSX;
+    const sy = this.baseSY;
+    this.scene.tweens.killTweensOf(this);
+    this.setScale(sx * 1.16, sy * 0.84);
+    this.scene.tweens.add({ targets: this, scaleX: sx, scaleY: sy, duration: 110, ease: "Back.out" });
+    if (this.hpBarBg === null) {
+      /* v1.0.14 (#6) — 체력바 판(어두운 네모) 살짝 반투명화: 불투명 판이 몬스터 위에
+       *  "스티커"처럼 붙어 보이던 이질감 완화 (유령 판 잔존 자체는 destroy 훅으로 원천 차단) */
+      this.hpBarBg = this.scene.add.rectangle(this.x, this.y, 26, 4, 0x22262e).setDepth(20).setAlpha(0.88);
+      this.hpBar = this.scene.add.rectangle(this.x, this.y, 24, 2, 0xe84a5a).setDepth(21);
+    }
+    if (this.hp <= 0) this.die();
+  }
+
+  private die() {
+    this.alive = false;
+    this.scene.sfxEnemyDie();
+    /* v4.9.3 — pixelfx 사망 연출 (몸이 부서지며 흩어진다) */
+    try { this.scene.pxFx?.play("death.normal", this.x, this.y, { scale: 0.7 }); } catch { /* 무시 */ }
+    /* v1.2.0 (#10) — 격파 히트스톱 70ms — 처치 순간의 무게감 */
+    this.scene.hitStop(70);
+    /* vc214 — 소멸 dissolve. 기존엔 파티클만 터지고 60ms 뒤 스프라이트가 즉시
+     * 사라져 "팟 하고 없어지는" 인상이었다. 지금 스프라이트와 같은 텍스처/프레임으로
+     * dissolve 셰이더를 그 자리에 얹어 몸이 재로 흩어지며 사라지게 한다.
+     * WebGL 이 아니면 spawnDissolve 가 null 을 돌려주고 아무 일도 일어나지 않는다
+     * (Canvas 폴백에서도 기존 연출 그대로 동작 — 안전). */
+    /* fxLevel 0(적응형 절전)에서는 dissolve 를 생략한다 — 이 프로젝트는 약한 GPU 에서
+     * 셰이더 경합으로 컨텍스트 유실을 겪은 이력이 있고, 사망 연출은 그 우선순위가 낮다. */
+    const dis = this.scene.fxLevel >= 1 && this.scene.game.renderer.type === Phaser.WEBGL
+      ? spawnDissolve(this.scene, this.texture.key, this.x, this.y, {
+          frame: this.frame?.name,
+          duration: 380,
+          // this.def 는 EnemyDef(정적 정의)라 elem 이 없다 — 인스턴스의 this.elem 을 쓴다
+          edgeColor: this.elem === "ice" ? 0xbfeaff : this.elem === "fire" ? 0xffb066 : 0xffc98a,
+          depth: this.depth + 1,
+          scale: this.scaleX,
+          flipX: this.flipX,
+        })
+      : null;
+    void dis;
+    this.scene.spawnDeathBurst(this.x, this.y);
+    /* v1.3.0 (#에셋통합) — 사망 폭발 퍼프 + 충격파 (Drive 팩 5-explosion/UNI 코어) */
+    this.scene.driveFx?.explosion(this.x, this.y, 0xffb08a);
+    this.scene.driveFx?.shockRing(this.x, this.y, 0xffd0a0, 0.8);
+    /* v1.4.11 — pk_smoke 사망 잔연기 (소멸 후 여운 — Particle Kit 활성화) */
+    this.scene.driveFx?.deathPuff(this.x, this.y, 0xcfc6de);
+    /* v3.0.3 — 사망 장판 (늪지 독괴물 등 — 죽어도 독 구덩이를 남긴다) */
+    const fod = this.def.profile?.fieldOnDeath;
+    if (fod) {
+      this.scene.spawnField({
+        x: this.x, y: this.y, radius: fod.radius, dur: fod.dur, dps: fod.dps,
+        kind: fod.kind, owner: "enemy",
+      });
+    }
+    // 2D MMORPG 기본 요소: 골드/물약 드롭
+    this.scene.dropLoot(this.x, this.y, this.def);
+    if (this.hpBar) this.hpBar.destroy();
+    if (this.hpBarBg) this.hpBarBg.destroy();
+    this.hpBar = null;
+    this.hpBarBg = null;
+    const exp = this.def.exp;
+    const sx = this.spawnX;
+    const sy = this.spawnY;
+    // ⚠️ destroy()가 this.scene을 null로 만들므로 반드시 먼저 캡처
+    //   (늑대 퀘스트가 끝까지 진행 안 되던 근본 원인)
+    const scene = this.scene;
+    scene.time.delayedCall(60, () => {
+      if (!scene.scene.isActive()) return;
+      /* v1.0.14 (#7) — onEnemyKilled이 어떤 예외를 던져도 시체가 남지 않게 finally 보장.
+       *  기존엔 킬 처리 도중 예외 시 this.destroy()가 스킵돼 스프라이트가 alive=false 채로
+       *  화면에 영구 잔존했다 ("몬스터를 죽이고 스프라이트가 남아있는" 버그). */
+      try {
+        scene.onEnemyKilled(this.def.key, exp, sx, sy, this); // v3.0.22 (#46) — 죽은 개체 참조 전달
+      } catch (e) {
+        console.error("[SERTZ] onEnemyKilled 처리 예외 — 시체 정리는 계속", e);
+      } finally {
+        this.destroy();
+      }
+    });
+  }
+
+  /** 부활 캠핑 방지 — 원래 스폰 지점 복귀 + 어그로 해제 (플레이어 부활 시 호출) */
+  resetHome() {
+    this.setPosition(this.homeX, this.homeY);
+    this.knockVec.set(0, 0);
+    this.setVelocity(0, 0);
+    this.modeTimer = 600;
+    this.ai.set("wander");
+    this.clearTint();
+  }
+
+  /* v1.0.14 (#6/#7) — 파괴 시 HP바 동반 정리 (이중 안전망).
+   *  hpBar/hpBarBg는 스프라이트와 별개 씬 오브젝트라 destroy()만으로는 안 없어진다.
+   *  이 오버라이드로 "어떤 경로로 파괴되든" 유령 체력바(어두운 판 26×4 = 유저가 본
+   *  "검은색 네모 이펙트")가 남는 일을 원천 차단한다. die()의 선정리와 중복돼도
+   *  null 가드로 무해 (이중 destroy는 Phaser가 no-op 처리). */
+  destroy(fromScene?: boolean) {
+    /* vc183 — 액터 난수 스트림 해제. 몬스터는 계속 스폰/소멸하므로
+     *  해제하지 않으면 Map 이 무한히 자란다. */
+    releaseActor(this.actorId);
+    if (this.hpBar) {
+      this.hpBar.destroy();
+      this.hpBar = null;
+    }
+    if (this.hpBarBg) {
+      this.hpBarBg.destroy();
+      this.hpBarBg = null;
+    }
+    /* vc236 (지시 #5) — 그림자도 별개 씬 오브젝트라 여기서 정리해야 유령이 남지 않는다. */
+    if (this.shadow) {
+      this.shadow.destroy();
+      this.shadow = null;
+    }
+    super.destroy(fromScene);
+  }
+
+  /* v1.0.14 (#7) — 즉시 정리 통로. HP바 정리는 destroy() 오버라이드로 일원화돼
+   *  이 메서드는 그냥 destroy() 위임 — WorldScene의 웨이브/층 정리 4곳이 쓰는 표면. */
+  destroyAll() {
+    this.destroy();
+  }
+}
+
+/** 순환 import 회피용 최소 인터페이스 */
+export interface PlayerLike {
+  x: number;
+  y: number;
+  hp: number;
+  /** v3.0.6 — hpPct: maxHP % 고정 피해 하한 (몬스터 공격 전용) */
+  takeDamage(dmg: number, fromDir: Phaser.Math.Vector2, pierce?: number, hpPct?: number): void;
+  /** v3.0.3 — 몬스터 상태이상 부여 (출혈/독/감속) */
+  applyEnemyStatus(kind: "bleed" | "poison" | "slow", dps: number, durMs: number): void;
+}

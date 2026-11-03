@@ -1,0 +1,508 @@
+import Phaser from "phaser";
+import { BODY_PREFIXES } from "./data";
+
+/**
+ * 애니메이션 등록 전용 모듈.
+ * 그래픽 자체는 모두 외부 에셋(public/assets/) — 캔버스 절차 생성 코드는 전면 제거되었다.
+ *  - 참격: Weapon Slash - Effect by Cethiel (CC0) 6프레임
+ *  - 차원문: Animated Portal by varkalandar (CC-BY 4.0) 8프레임
+ *  - 이외 캐릭터/몬스터/이펙트: ArMM1998/Kenney/LPC/Sotrak (CREDITS.md 참조)
+ */
+
+/** v1.2.1 (#4 최적화) — 지연 로드된 외형 시트의 애님 후등록 (타이틀 백그라운드 로드 완료 직후 호출).
+ *  buildAllAnims는 부팅 시점에 존재하는 시트만 등록하므로, cost_/jobf_/jobm_/gm_ 시트는
+ *  로드 완료 후 이 함수로 애님을 만들어야 applyBodyLook 전환이 끊기지 않는다. */
+
+const BODY_FRAME_NAMES = [
+  "idle0", "idle1", "idle2", "idle3",
+  "walk0", "walk1", "walk2", "walk3",
+  "walkside0", "walkside1", "walkside2", "walkside3",
+  "walkup0", "walkup1", "walkup2", "walkup3",
+  "atk0", "atk1", "atk2", "atk3",
+  "atkdown0", "atkdown1", "atkdown2", "atkdown3",
+  "atkup0", "atkup1", "atkup2", "atkup3",
+] as const;
+
+/** v1.5.1 — Phaser 로더를 완전히 우회하는 단일 이미지 로딩:
+ *  브라우저 네이티브 Image 로딩(병렬) + TextureManager.addImage 등록.
+ *  이 Phaser 4 빌드의 로더는 진행 중 큐잉 시 멈추는(1장 후 정지) 결함이 있어
+ *  로더와 아예 무관하게 동작시킨다 — 완료 감지는 textures.exists 폴링(tickBodyPending).
+ * v1.4.12 (#4/#9 스프라이트 안불러와짐) — 무음 실패가 진짜 원인:
+ *  onerror에서 재시도 없이 resolve() 하면 WebView 캐시 오염(업데이트 직후 흔함 —
+ *  stale 캐시 항목이 partial/corrupt 응답을 내놓는다) 시 walk 프레임 일부가 영구 누락돼
+ *  "이동하면 애니메이션이 안 나온다"는 증상이 됐다. → 2라운드 재시도 + 재시도 시
+ *  캐시버스팅 쿼리(?r=타임스탬프)로 오염된 캐시 항목을 우회한다. */
+function loadImageRaw(scene: Phaser.Scene, key: string, url: string, bust = false): Promise<void> {
+  return new Promise<void>((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        if (!scene.textures.exists(key)) scene.textures.addImage(key, img);
+      } catch { /* 등록 실패 무시 — 폴백 유지 */ }
+      resolve();
+    };
+    img.onerror = () => resolve(); // 실패도 진행 — 상위 라운드 재시도가 커버
+    img.src = bust ? `${url}${url.includes("?") ? "&" : "?"}r=${Date.now()}` : url;
+  });
+}
+
+/** v1.5.0 — 선택한 캐릭터에 필요한 외형 시트만 지연 로드.
+ * 기존 타이틀의 37종 × 28프레임 일괄 요청을 제거해 입장 시 메인 스레드/네트워크
+ * 압박을 크게 줄인다. */
+export async function loadBodyPrefix(scene: Phaser.Scene, prefix: string | null | undefined): Promise<void> {
+  if (!prefix || scene.textures.exists(`${prefix}_idle0`)) return;
+
+  const need = BODY_FRAME_NAMES.filter((f) => !scene.textures.exists(`${prefix}_${f}`));
+  if (need.length === 0) {
+    registerBodyAnims(scene, [prefix]);
+    return;
+  }
+
+  /* v1.4.12 (#4/#9) — 3라운드 로드: 1차 정상 → 2차 캐시버스팅 → 3차 재버스팅.
+   *  각 라운드는 "앞 라운드에서 실패한(미등록된) 프레임"만 다시 시도한다.
+   *  업데이트 직후 WebView 캐시 오염으로 일부 프레임(특히 walk)이 무음 실패하던
+   *  문제를 재시도+버스팅으로 수복한다. */
+  let pending = need;
+  for (let round = 0; round < 3 && pending.length > 0; round++) {
+    await Promise.all(pending.map((f) => loadImageRaw(scene, `${prefix}_${f}`, `assets/${prefix}_${f}.webp`, round > 0)));
+    pending = BODY_FRAME_NAMES.filter((f) => !scene.textures.exists(`${prefix}_${f}`));
+  }
+  if (pending.length > 0) {
+    console.warn(`[SERTZ] 외형 프레임 재시도 후에도 누락 — ${prefix}: ${pending.join(",")}`);
+  }
+  /* 핵심 프레임 등록 확인 후 애님 등록 (일부 실패 시 애님 참조 오류 방지) */
+  if (scene.textures.exists(`${prefix}_idle0`)) registerBodyAnims(scene, [prefix]);
+}
+
+export function registerBodyAnims(scene: Phaser.Scene, prefixes: readonly string[]) {
+  const a = scene.anims;
+  const fr = (prefix: string, n: number, rate: number, repeat: number) => ({
+    frames: Array.from({ length: n }, (_, i) => ({ key: `${prefix}${i}` })),
+    frameRate: rate,
+    repeat,
+  });
+  for (const p of prefixes) {
+    if (!scene.textures.exists(`${p}_idle0`)) continue; // 미로드 시트 스킵 (안전)
+    if (a.exists(`${p}-idle`)) continue; // 이중 등록 방지
+    a.create({ key: `${p}-idle`, ...fr(`${p}_idle`, 4, 4, -1) });
+    a.create({ key: `${p}-walk`, ...fr(`${p}_walk`, 4, 9, -1) });
+    a.create({ key: `${p}-walk-up`, ...fr(`${p}_walkup`, 4, 9, -1) });
+    a.create({ key: `${p}-walk-side`, ...fr(`${p}_walkside`, 4, 9, -1) });
+    a.create({ key: `${p}-atk`, ...fr(`${p}_atk`, 4, 16, 0) });
+    a.create({ key: `${p}-atk-down`, ...fr(`${p}_atkdown`, 4, 16, 0) });
+    a.create({ key: `${p}-atk-up`, ...fr(`${p}_atkup`, 4, 16, 0) });
+  }
+}
+
+/** 전역 애니메이션 등록 (최초 1회) — 실제 에셋 시트 프레임 기반 */
+export function buildAllAnims(scene: Phaser.Scene) {
+  const a = scene.anims;
+  if (a.exists("hero-idle")) return;
+  const fr = (prefix: string, n: number, rate: number, repeat: number) => ({
+    frames: Array.from({ length: n }, (_, i) => ({ key: `${prefix}${i}` })),
+    frameRate: rate,
+    repeat,
+  });
+  /* vc226 — FA 애니메이션을 **아틀라스**에서 등록한다.
+   *  프레임 이름은 아틀라스 JSON 에 원래 키(`fa_p1_idle__0`)로 들어 있으므로
+   *  각 프레임을 `{ key: "fa_p1", frame: ... }` 로 가리킨다.
+   *  프레임 수는 원본 시트 실측값(p1 기준)이고, 틀리면 존재하지 않는 프레임을 참조한다. */
+  const FA_N: Record<string, number> = {
+    idle: 7, run: 8, atk: 5, atk2: 5, atk3: 5, atk4: 6, atkup: 5, atkdown: 5,
+    jump: 3, fall: 4, dash: 4, hit: 4, dead: 18, idle2run: 3, run2idle: 3, land: 3,
+  };
+  const FA_RATE: Record<string, number> = {
+    idle: 7, run: 12, atk: 16, atk2: 16, atk3: 16, atk4: 14, atkup: 16, atkdown: 16,
+    jump: 14, fall: 10, dash: 16, hit: 12, dead: 12, idle2run: 14, run2idle: 14, land: 14,
+  };
+  if (scene.textures.exists("fa_p1")) {
+    for (const [an, n] of Object.entries(FA_N)) {
+      const key = `fa-p1-${an}`;
+      if (a.exists(key)) continue;
+      a.create({
+        key,
+        frames: Array.from({ length: n }, (_, i) => ({
+          key: "fa_p1",
+          frame: `fa_p1_${an}__${i}`,
+        })),
+        frameRate: FA_RATE[an] ?? 12,
+        repeat: an === "idle" || an === "run" ? -1 : 0,
+      });
+    }
+  }
+
+  // 주인공 (방향별 실제 스윙 프레임)
+  a.create({ key: "hero-idle", ...fr("hero_idle", 4, 4, -1) });
+  a.create({ key: "hero-walk", ...fr("hero_walk", 4, 9, -1) }); // 아래
+  a.create({ key: "hero-walk-up", ...fr("hero_walkup", 4, 9, -1) });
+  a.create({ key: "hero-walk-side", ...fr("hero_walkside", 4, 9, -1) }); // 오른쪽 기준(좌는 flipX)
+  a.create({ key: "hero-atk", ...fr("hero_atk", 4, 16, 0) }); // 측면(오른쪽)
+  a.create({ key: "hero-atk-down", ...fr("hero_atkdown", 4, 16, 0) });
+  a.create({ key: "hero-atk-up", ...fr("hero_atkup", 4, 16, 0) });
+  /* v1.1.0 (#1/#21/#22) — 외형 변형 시트 애님: 여성(chf)/피부(chm)/코스튬 완전 교체(cost_*)
+   *  hero-* 와 동일 구조 7종 애님을 프리픽스별로 등록 — Player.bodyKey()가 매핑한다 */
+  for (const p of BODY_PREFIXES) {
+    if (!scene.textures.exists(`${p}_idle0`)) continue; // 미로드 시트 스킵 (안전)
+    a.create({ key: `${p}-idle`, ...fr(`${p}_idle`, 4, 4, -1) });
+    a.create({ key: `${p}-walk`, ...fr(`${p}_walk`, 4, 9, -1) });
+    a.create({ key: `${p}-walk-up`, ...fr(`${p}_walkup`, 4, 9, -1) });
+    a.create({ key: `${p}-walk-side`, ...fr(`${p}_walkside`, 4, 9, -1) });
+    a.create({ key: `${p}-atk`, ...fr(`${p}_atk`, 4, 16, 0) });
+    a.create({ key: `${p}-atk-down`, ...fr(`${p}_atkdown`, 4, 16, 0) });
+    a.create({ key: `${p}-atk-up`, ...fr(`${p}_atkup`, 4, 16, 0) });
+  }
+  /* v3.0.2 — 신규 외부 몬스터 9종 (50 Monsters Pack, CC0) */
+  for (const k of [
+    "x2_frog", "x2_rat", "x2_bat", "x2_firebird", "x2_frostfly",
+    "x2_snail", "x2_stonegolem", "x2_darkhound", "x2_reeffish",
+  ]) {
+    a.create({ key: `${k}-idle`, ...fr(`${k}_idle`, 2, 2, -1) });
+    a.create({ key: `${k}-run`, ...fr(`${k}_run`, 4, 10, -1) });
+    a.create({ key: `${k}-atk`, ...fr(`${k}_atk`, 1, 1, 0) });
+  }
+  /* v4.8.0 — 영준프린세스 1기(라일락 월드) 전용 몬스터 40종.
+   *  0x72 DungeonTileset II(CC0) 원본 16px 를 ×4 업스케일한 시트를 쓴다.
+   *  이그드라실(x3_*)과 키가 겹치지 않도록 lil_ 접두사를 유지하고,
+   *  같은 팩 계열이라 화풍은 기존 챕터와 일치한다. */
+  for (const k of [
+    "lil_rat", "lil_shadowmoth", "lil_bookwisp",
+    "lil_deckhand", "lil_sharkling", "lil_tridenter", "lil_bilgehorror",
+    "lil_imugi", "lil_dokkaebi", "lil_gwisin", "lil_hwansu",
+    "lil_corrupt_knight", "lil_void_lancer", "lil_abyss_hound", "lil_gloom_wraith",
+    "lil_blight_soldier", "lil_water_echo", "lil_wind_echo",
+    "lil_thunder_echo", "lil_fire_echo",
+    "lil_throne_shade", "lil_curse_marker", "lil_end_herald",
+    "lil_boss_harold", "lil_boss_kraken", "lil_boss_dokkaebi", "lil_boss_feron",
+    "lil_boss_blackdragon", "lil_boss_angelic", "lil_boss_veronica", "lil_boss_din",
+    "lil_boss_water", "lil_boss_wind", "lil_boss_thunder", "lil_boss_fire",
+    "lil_boss_aion", "lil_boss_aldabaoth", "lil_boss_scarlet1",
+    "lil_boss_scarlet2", "lil_boss_scarlet3",
+  ]) {
+    if (!scene.textures.exists(`${k}_idle0`)) continue; // 미설치 시 스킵(안전)
+    a.create({ key: `${k}-idle`, ...fr(`${k}_idle`, 4, 4, -1) });
+    a.create({ key: `${k}-run`, ...fr(`${k}_run`, 4, 10, -1) });
+    a.create({ key: `${k}-atk`, ...fr(`${k}_atk`, 1, 1, 0) });
+  }
+  /* v3.0.3 — 0x72 DungeonTileset II (itch.io, CC0) 신규 몬스터 7종: idle4+run4 */
+  for (const k of [
+    "x3_swampy", "x3_imp", "x3_icezombie", "x3_tinyzombie",
+    "x3_ogre", "x3_chort", "x3_necromancer",
+    /* v3.0.4 — itch.io 추가 6종 */
+    "x3_maskedorc", "x3_orcwarrior", "x3_orcshaman", "x3_wogol", "x3_goblin", "x3_bigzombie",
+  ]) {
+    a.create({ key: `${k}-idle`, ...fr(`${k}_idle`, 4, 4, -1) });
+    a.create({ key: `${k}-run`, ...fr(`${k}_run`, 4, 10, -1) });
+    a.create({ key: `${k}-atk`, ...fr(`${k}_atk`, 1, 1, 0) });
+  }
+  /* v3.0.2 — 마법 투사체/시전 이펙트 (Pixelart Spells, CC0) */
+  a.create({ key: "fx-arcane", frames: Array.from({ length: 6 }, (_, i) => ({ key: "x2_sp_arcane", frame: i })), frameRate: 14, repeat: -1 });
+  a.create({ key: "fx-magicorb", frames: Array.from({ length: 6 }, (_, i) => ({ key: "x2_sp_magicorb", frame: i })), frameRate: 12, repeat: -1 });
+  a.create({ key: "fx-fireball", frames: Array.from({ length: 6 }, (_, i) => ({ key: "x2_sp_fireball", frame: i })), frameRate: 14, repeat: -1 });
+  a.create({ key: "fx-icelance", frames: Array.from({ length: 4 }, (_, i) => ({ key: "x2_sp_icelance", frame: i })), frameRate: 12, repeat: -1 });
+  a.create({ key: "fx-darkbolt", frames: Array.from({ length: 6 }, (_, i) => ({ key: "x2_sp_darkbolt", frame: i })), frameRate: 14, repeat: -1 });
+  a.create({ key: "fx-sparks", frames: Array.from({ length: 6 }, (_, i) => ({ key: "x2_sp_sparks", frame: i })), frameRate: 18, repeat: 0 });
+  /* v3.0.8 디자인 개편 — Warped Shooting Fx / Cartoon FX Remaster 신규 VFX 애님 */
+  a.create({ key: "fx2-bolt", frames: Array.from({ length: 4 }, (_, i) => ({ key: "vfx2_bolt", frame: i })), frameRate: 12, repeat: -1 });
+  a.create({ key: "fx2-charged", frames: Array.from({ length: 6 }, (_, i) => ({ key: "vfx2_charged", frame: i })), frameRate: 14, repeat: -1 });
+  a.create({ key: "fx2-hit1", frames: Array.from({ length: 4 }, (_, i) => ({ key: "vfx2_hit1", frame: i })), frameRate: 22, repeat: 0 });
+  a.create({ key: "fx2-hit3", frames: Array.from({ length: 4 }, (_, i) => ({ key: "vfx2_hit3", frame: i })), frameRate: 22, repeat: 0 });
+  a.create({ key: "fx2-hit5", frames: Array.from({ length: 4 }, (_, i) => ({ key: "vfx2_hit5", frame: i })), frameRate: 22, repeat: 0 });
+  a.create({ key: "fx2-pulse", frames: Array.from({ length: 4 }, (_, i) => ({ key: "vfx2_pulse", frame: i })), frameRate: 8, repeat: -1 });
+  a.create({ key: "fx2-elec", frames: Array.from({ length: 8 }, (_, i) => ({ key: "vfx2_elec", frame: i })), frameRate: 20, repeat: 0 });
+  a.create({ key: "fx2-tri", frames: Array.from({ length: 2 }, (_, i) => ({ key: "vfx2_tri", frame: i })), frameRate: 16, repeat: 0 });
+  /* v3.0.11 — 토네이도 회전 애님 (스카이로드 폭풍 소용돌이/천공의 폭풍/윈드러너 회오리 화살) */
+  a.create({ key: "fx-tornado", frames: Array.from({ length: 8 }, (_, i) => ({ key: "fx_tornado", frame: i })), frameRate: 16, repeat: -1 });
+  // 몬스터
+  a.create({ key: "wolf-idle", ...fr("wolf_idle", 2, 2, -1) });
+  a.create({ key: "wolf-run", ...fr("wolf_run", 4, 10, -1) });
+  a.create({ key: "minion-idle", ...fr("minion_idle", 2, 3, -1) });
+  a.create({ key: "minion-run", ...fr("minion_run", 4, 8, -1) });
+  // 스토리 확장 몬스터 (동굴/니플헤임/심연)
+  a.create({ key: "spider-idle", ...fr("spider_idle", 2, 3, -1) });
+  a.create({ key: "spider-run", ...fr("spider_run", 4, 9, -1) });
+  a.create({ key: "golem-idle", ...fr("golem_idle", 2, 2, -1) });
+  a.create({ key: "golem-run", ...fr("golem_run", 4, 6, -1) });
+  a.create({ key: "frostwolf-idle", ...fr("frostwolf_idle", 2, 2, -1) });
+  a.create({ key: "frostwolf-run", ...fr("frostwolf_run", 4, 10, -1) });
+  a.create({ key: "icegolem-idle", ...fr("icegolem_idle", 2, 2, -1) });
+  a.create({ key: "icegolem-run", ...fr("icegolem_run", 4, 6, -1) });
+  /* vc213 (#2 유령 애니메이션 복원) — 심연 유령은 10프레임 실사 애니메이션 시트를 쓴다.
+   *  기존 2프레임 idle / 4프레임 run 텍스처(wraith_idleN·wraith_runN)는 정적 1장을
+   *  변형한 합성본이라 실제 모션이 없었다(4프레임 중 고유 3개). 시트가 있으면
+   *  그쪽을 우선 등록하고, 없을 때만 구형 2/4프레임 폴백을 쓴다. */
+  if (scene.textures.exists("wraith_spirit")) {
+    a.create({
+      key: "wraith-idle",
+      frames: a.generateFrameNumbers("wraith_spirit", { start: 0, end: 9 }),
+      frameRate: 10,
+      repeat: -1,
+    });
+    a.create({
+      key: "wraith-run",
+      frames: a.generateFrameNumbers("wraith_spirit", { start: 0, end: 9 }),
+      frameRate: 14,
+      repeat: -1,
+    });
+  } else {
+    a.create({ key: "wraith-idle", ...fr("wraith_idle", 2, 3, -1) });
+    a.create({ key: "wraith-run", ...fr("wraith_run", 4, 7, -1) });
+  }
+  // 보스 3종 (guardian / behemoth / abysslord)
+  /* v1.4.31 (#4) — 아틀라스 보스(boss/boss2/boss3·nidhog/surt/fenrir/skoll)는 개별 idle0 이미지가
+   *  철수되었으므로 2프레임 폴백을 만들지 않는다 — registerBossAnims가 시트에서 즉시 풀애니 등록 */
+  if (!BOSS_ATLAS["boss"]) a.create({ key: "boss-idle", ...fr("boss_idle", 2, 2, -1) });
+  if (!BOSS_ATLAS["boss2"]) a.create({ key: "boss2-idle", ...fr("boss2_idle", 2, 2, -1) });
+  if (!BOSS_ATLAS["boss3"]) a.create({ key: "boss3-idle", ...fr("boss3_idle", 2, 2, -1) });
+  // v2.0 아뜰란티스 확장 몬스터 (v1.5 이관)
+  a.create({ key: "swampbeast-idle", ...fr("swampbeast_idle", 2, 2, -1) });
+  a.create({ key: "swampbeast-run", ...fr("swampbeast_run", 4, 7, -1) });
+  a.create({ key: "emberwolf-idle", ...fr("emberwolf_idle", 2, 2, -1) });
+  a.create({ key: "emberwolf-run", ...fr("emberwolf_run", 4, 10, -1) });
+  a.create({ key: "firespirit-idle", ...fr("firespirit_idle", 2, 3, -1) });
+  a.create({ key: "firespirit-run", ...fr("firespirit_run", 4, 8, -1) });
+  a.create({ key: "runegolem-idle", ...fr("runegolem_idle", 2, 2, -1) });
+  a.create({ key: "runegolem-run", ...fr("runegolem_run", 4, 6, -1) });
+  a.create({ key: "helhound-idle", ...fr("helhound_idle", 2, 2, -1) });
+  a.create({ key: "helhound-run", ...fr("helhound_run", 4, 10, -1) });
+  // v2.0 아뜰란티스 신규 보스
+  if (!BOSS_ATLAS["boss_nidhog"]) a.create({ key: "boss_nidhog-idle", ...fr("boss_nidhog_idle", 2, 2, -1) });
+  if (!BOSS_ATLAS["boss_surt"]) a.create({ key: "boss_surt-idle", ...fr("boss_surt_idle", 2, 2, -1) });
+  if (!BOSS_ATLAS["boss_fenrir"]) a.create({ key: "boss_fenrir-idle", ...fr("boss_fenrir_idle", 2, 2, -1) });
+  if (!BOSS_ATLAS["boss_skoll"]) a.create({ key: "boss_skoll-idle", ...fr("boss_skoll_idle", 2, 2, -1) });
+  /* vc148 (#보스그리드) — 3종 아틀라스 전환: 레거시 2프레임 폴백은 아틀라스가 있으면 스킵 */
+  if (!BOSS_ATLAS["boss_gram"]) a.create({ key: "boss_gram-idle", ...fr("boss_gram_idle", 2, 2, -1) });
+  if (!BOSS_ATLAS["boss_abudditos"]) a.create({ key: "boss_abudditos-idle", ...fr("boss_abudditos_idle", 2, 2, -1) });
+  // 배치1 — 마을 모닥불 (Serene_Village campfire 32x32 4프레임)
+  a.create({
+    key: "sv-campfire",
+    frames: [0, 1, 2, 3].map((f) => ({ key: "sv_campfire", frame: f })),
+    frameRate: 6,
+    repeat: -1,
+  });
+  // VFX — 참격 초승달 스윕(외부 애니), 차원문 소용돌이
+  a.create({ key: "fx-slash", ...fr("slash", 6, 30, 0) });
+  a.create({ key: "portal-spin", ...fr("portal", 8, 10, -1) });
+  /* v4.7.0 — Cainos 상자 개봉 애니 (Village Props, CC0 — public/assets/chest_anim.webp)
+   *  64px 8열 시트 · 행별 7프레임 개봉 시퀀스. 행0 목재(패키지) / 행1 철(무쇠) / 행2 은(실버) / 행3 금(골드·전설) */
+  if (scene.textures.exists("chest_anim")) {
+    for (let r = 0; r < 4; r++) {
+      a.create({
+        key: `chest-open-${r}`,
+        frames: a.generateFrameNumbers("chest_anim", { start: r * 8, end: r * 8 + 6 }),
+        frameRate: 14,
+        repeat: 0,
+      });
+    }
+  }
+  // 장식 이펙트
+  a.create({ key: "flame-burn", ...fr("flame", 4, 8, -1) });
+  a.create({ key: "sparkle", ...fr("sparkle", 2, 3, -1) });
+  /* v1.3.0 (#8) — PixelFX 모닥불 화염 + Cainos 분수 물 튀김 애님 */
+  if (scene.textures.exists("px_fire0")) {
+    a.create({ key: "vfx3-fire", frames: [0, 1, 2, 3, 4].map((i) => ({ key: `px_fire${i}` })), frameRate: 9, repeat: -1 });
+  }
+  if (scene.textures.exists("cainos_water0")) {
+    a.create({ key: "vfx3-water", frames: [0, 1, 2, 3].map((i) => ({ key: `cainos_water${i}` })), frameRate: 7, repeat: -1 });
+  }
+}
+
+/* ═════════ v1.4.31 (#4 보스 개편) — 유저 제공 9보스 아틀라스 ═════════
+ *  12열×6~7행 통합 시트(유저 업로드 마스터)를 배경 제거·셀 분할해 보스당 1장 스프라이트시트로 적용.
+ *  행 구성: 0 Idle(호흡) / 1 Run / 2 Attack / 3 Sp1 / 4 Sp2 / 5 Sp3(6행 시트는 생략) / 6(5) Died
+ *  · 기존 42장 개별 프레임(idle0~5·walk0~5·… 240×180 AI 에셋)을 완전 대체 — 요청 수 1/42
+ *  · 프레임은 슬라이서 실측 크기(시트별 상이) — BOSS_ATLAS의 fw/fh와 정확히 일치해야 한다
+ *  · 프로그램 키는 기존과 동일(tex-idle·tex-walk·…) — Boss.ts 로직 무수정 호환 */
+export const BOSS_ATLAS: Record<string, { key: string; file: string; fw: number; fh: number; cols?: number }> = {
+  boss:         { key: "atl_boss", file: "boss_golem.png", fw: 100, fh: 100, cols: 10 }, // 수정 왕 → 바위 골렘 (vc235 교체: 27% 하단 잘림)
+  boss2:        { key: "atl_boss2", file: "boss_skeleton.png", fw: 100, fh: 100, cols: 18 }, // 유령선 → 언데드 집행자 (vc235 교체: 79% 하단 잘림, 최우선)
+  boss3:        { key: "atl_boss3", file: "boss_slime.png", fw: 288, fh: 160, cols: 22 }, // 악령 여왕 → 데몬 슬라임 (vc235 교체: 21% 잘림)
+  boss_nidhog: { key: "atl_boss_nidhog", file: "boss_dragon.png", fw: 256, fh: 157, cols: 16 }, // 니드호그 → 드래곤 (vc235 교체: 23% 잘림)
+  boss_surt:    { key: "atl_boss_surt", file: "boss_slime.png", fw: 288, fh: 160, cols: 22 }, // 수르트 → 데몬 슬라임 (화염 악마, vc235 교체)
+  boss_fenrir: { key: "atl_boss_fenrir", file: "boss_mino.png", fw: 288, fh: 160, cols: 16 }, // 펜리르 → 미노타우르스(야수형, vc235 교체: 43% 잘림)
+  boss_skoll:  { key: "atl_boss_skoll",  file: "boss_mino.png",  fw: 288, fh: 160, cols: 16 }, // 스콜 → 미노타우르스 (쌍랑도 야수형, vc235 교체: 43% 잘림)
+  boss_nagr:   { key: "atl_boss_nagr",   file: "boss_frost.png",   fw: 192, fh: 128, cols: 16 }, // 나그라파르 → 프로스트 가디언 (얼음 거수, vc235 교체: 48% 잘림)
+  boss_hati:   { key: "atl_boss_hati",   file: "boss_frost.png",   fw: 192, fh: 128, cols: 16 }, // 하티 → 프로스트 가디언 (쌍랑, vc235 교체: 77% 잘림)
+  boss_jorm:    { key: "atl_boss_jorm", file: "boss_dragon.png", fw: 256, fh: 157, cols: 16 }, // 요르문간드 → 드래곤 (뱀/드래곤, vc235 교체: 59% 잘림)
+  /* vc148 (#보스그리드) — vc137 잔재 3종 HD 재슬라이싱: 이질 아트 혼합(컬러 전방+흑룡 실루엣 특수기/
+   *  보라 악마+붉은 늑대) + 프레임 잘림 수리 — bsw_ 원본 그리드(8열×7행 192.5×147 / 6열×7행 204×184) 그대로 */
+  boss_abudditos: { key: "atl_boss_abudditos", file: "boss_dragon.png", fw: 256, fh: 157, cols: 16 }, // 아부디토스 → 드래곤 (마룡, vc235 교체: 68% 잘림)
+  boss_vord:      { key: "atl_boss_vord",      file: "boss_golem.png",      fw: 100, fh: 100, cols: 10 }, // 베오르드 → 바위 골렘(파수꾼, vc235 교체: 15% 잘림)
+  boss_gram:      { key: "atl_boss_gram",      file: "boss_skeleton.png",      fw: 100, fh: 100, cols: 18 }, // 가름 → 언데드 집행자(사신형 문지기, vc235 교체: 45% 잘림)
+
+  /* ═════════ vc235 — 실제 제작 애니메이션 팩으로 교체 ═════════
+   *  [왜] 기존 13종 중 11종이 프레임 하단에서 아트가 수평으로 잘려 있었다
+   *   (유령선 79%, 하티 77%, 아부디토스 68%). 격자는 정확했고 **아트 자체가**
+   *   y=188 같은 높이에서 끊겨 있었다 — AI 생성 원본이라 격자에 그림이 안 맞는다.
+   *   격자를 고쳐도 해결되지 않으므로 애니메이션이 실제로 제작된 팩으로 바꾼다.
+   *
+   *  [방식] 위 항목들의 `file`/`fw`/`fh`/`cols` 만 새 시트로 바꿨다.
+   *   `key`(atl_boss·atl_boss2 …)를 그대로 두었으므로 BOSS_DEFS 의 `tex` 와
+   *   Boss.ts·registerBossAnims 는 무수정으로 호환된다.
+   *
+   *  [규격] `tools/pack_bosses.py` 가 원본 팩을 행 순서 규약
+   *   (0 idle 1 walk 2 atk 3 sp1 4 sp2 5 sp3 6 die) 으로 재배열해 굽는다.
+   *   프레임 크기는 팩 원본 그대로 보존하고(확대 없음), `Boss.ts` 가 320px
+   *   높이로 정규화하므로 체급은 자동으로 맞는다.
+   *
+   *  [공유] boss_dragon.png 1장을 니드호그·아부디토스·요르문간드가 같이 쓴다
+   *   — 셋 다 용이고, 시트를 3벌 두면 부팅 전송량만 4MB 늘어난다.
+   *   같은 이유로 boss_golem(수정왕·베오르드)·boss_skeleton(유령선·가름)도 공유. */
+};
+
+/** 아틀라스 행별 유효 프레임 수 (슬라이서 실측 — 뒤쪽 빈 프레임 트리밍).
+ *  6행 시트는 sp3가 없다 (Boss.animFor의 beamTele → setBossAnim 폴백으로 idle 동작).
+ *  v1.0.16 — 신규 시트는 소스 순서 [idle,run,atk,die,sp1,sp2(,sp3)]를 게임 규약
+ *  [idle,walk,atk,sp1,sp2(,sp3),die]로 재배치한 결과다(빌더가 remap 수행). */
+export const BOSS_ATLAS_ROWS: Record<string, number[]> = {
+  /* ═════════ vc235 — 팩 원본 실측 프레임 수 ═════════
+   *  [왜 행마다 다른가] 외부 팩은 클립별 프레임 수가 제각각이다
+   *   (드래곤 idle 8 / death 16, 슬라임 death 22 …). 예전처럼 전 행을 같은
+   *   수로 맞추면 짧은 클립이 끝에서 멈춰 보이거나 긴 클립이 잘린다.
+   *   `registerBossAnims` 가 이 배열을 그대로 써서 행별로 start/end 를 잡는다.
+   *
+   *  [순서] 0 idle  1 walk  2 atk  3 sp1  4 sp2  5 sp3  6 die
+   *   팩에 없는 클립은 `pack_bosses.py` 가 가까운 동작으로 채운다
+   *   (sp3←atk, sp2←sp1, die←idle). 빈 행을 두면 그 기술 때 보스가 굳는다. */
+  boss:        [4, 8, 9, 7, 10, 9, 10],            // 바위 골렘 (구 수정 왕)
+  boss2:       [4, 8, 13, 12, 5, 13, 18],          // 언데드 집행자 (구 유령선 — 79% 잘림이던 최악)
+  boss3:       [6, 12, 15, 5, 5, 15, 22],          // 데몬 슬라임 (구 악령 여왕)
+  boss_nidhog: [8, 12, 12, 12, 5, 12, 16],         // 드래곤
+  boss_surt:   [6, 12, 15, 5, 5, 15, 22],          // 데몬 슬라임 (화염 악마)
+  boss_fenrir: [16, 12, 16, 16, 16, 16, 16],       // 미노타우르스 (야수형)
+  boss_hati:   [6, 10, 14, 7, 7, 14, 16],          // 프로스트 가디언
+  boss_skoll:  [16, 12, 16, 16, 16, 16, 16],       // 미노타우르스 (쌍랑)
+  boss_nagr:   [6, 10, 14, 7, 7, 14, 16],          // 프로스트 가디언 (얼음 거수)
+  boss_jorm:   [8, 12, 12, 12, 5, 12, 16],         // 드래곤 (뱀/드래곤)
+  boss_abudditos: [8, 12, 12, 12, 5, 12, 16],      // 드래곤 (마룡)
+  boss_vord:      [4, 8, 9, 7, 10, 9, 10],         // 바위 골렘 (파수꾼)
+  boss_gram:      [4, 8, 13, 12, 5, 13, 18],       // 언데드 집행자 (사신형 문지기)
+};
+
+/** 보스 초기 텍스처/프레임 — 아틀라스 보스는 시트 frame 0, 구형은 개별 idle0 이미지 */
+export function bossSourceFrame(tex: string): { key: string; frame?: number } {
+  const at = BOSS_ATLAS[tex];
+  if (at) return { key: at.key, frame: 0 };
+  return { key: `${tex}_idle0` };
+}
+
+/** 대화창·도감 초상화 URL — 아틀라스 보스는 슬라이서가 뽑은 전용 초상화 파일 */
+export function bossPortraitUrl(tex: string): string {
+  return BOSS_ATLAS[tex] ? `/assets/bossport_${tex}.webp` : `/assets/${tex}_idle0.webp`;
+}
+
+/* ═════════ v5.0 — 보스 전면 리메이크: 12FPS 풀애니 (idle/walk/atk/die/sp1~3) ═════════
+ *  설계도 스펙(12FPS · 각 애니 6프레임 · 특수기술 3종)에 맞춘 보스 전용 애니 등록.
+ *  - 부팅 시 idle0/1만 로드된 상태에선 기존 2프레임 애니가 폴백으로 동작
+ *  - loadBossFrames()가 나머지 프레임을 지연 로드하면 이 함수가 애니를 재등록(교체)한다
+ *  - 프레임이 존재하는 애니만 등록 — fenrir처럼 sp가 없는 구판 아트도 안전 */
+export function registerBossAnims(scene: Phaser.Scene, tex: string) {
+  if (!tex) return;
+  const a = scene.anims;
+  /* v1.4.31 (#4) — 아틀라스 보스: 시트 프레임에서 7종 풀애니 즉시 등록 (지연 로드 불필요) */
+  const at = BOSS_ATLAS[tex];
+  if (at) {
+    if (!scene.textures.exists(at.key)) return;
+    const a0 = scene.anims;
+    /* 부팅 등록분이 이미 있으면 재생성 스킵 (Boss 스폰 시 중복 등록 방지) */
+    if (a0.exists(`${tex}-idle`) && a0.exists(`${tex}-die`)) return;
+    const counts = BOSS_ATLAS_ROWS[tex] ?? [];
+    const six = counts.length === 6; // sp3 없음
+    const plan: Array<[string, number, number]> = [
+      ["idle", 12, -1], ["walk", 12, -1], ["atk", 14, 0], ["sp1", 12, 0], ["sp2", 12, 0],
+    ];
+    if (!six) plan.push(["sp3", 12, 0]);
+    plan.push(["die", 10, 0]);
+    plan.forEach(([nm, rate, rep], row) => {
+      /* vc235 — 종전엔 `Math.min(counts[row], 12)` 로 **모든 애니를 12프레임으로
+       *  잘라냈다**. 외부 팩은 클립마다 길이가 달라서(슬라임 death 22, 미노 16,
+       *  드래곤 death 16) 뒤쪽 프레임이 통째로 사라졌고, `pack_bosses.py` 가
+       *  정성껏 구운 프레임이 절반만 재생됐다(검증에서 33건 불일치).
+       *  상한은 아틀라스의 실제 열 수(cols)여야 한다 — 그보다 큰 값은 존재하지
+       *  않는 프레임을 가리켜 보스가 사라진다. */
+      const n = Math.min(counts[row] ?? 0, at.cols ?? 12);
+      if (n < 2) return;
+      const key = `${tex}-${nm}`;
+      if (a.exists(key)) a.remove(key);
+      a.create({
+        key,
+        /* v1.0.16 — 열 수는 아틀라스마다 다르다(구 아틀라스 12열, 신규 시트 6/8열).
+         *  Phaser 스프라이트시트 프레임 인덱스는 텍스처 자신의 열 수 기준 행우선이므로
+         *  row*cols 를 써야 한다 — 종전엔 12로 하드코딩돼 있었다. */
+        frames: Array.from({ length: n }, (_, i) => ({ key: at.key, frame: row * (at.cols ?? 12) + i })),
+        frameRate: rate,
+        repeat: rep,
+      });
+    });
+    return;
+  }
+  const countSeq = (prefix: string) => {
+    let n = 0;
+    while (scene.textures.exists(`${prefix}${n}`)) n++;
+    return n;
+  };
+  const mk = (name: string, filePrefix: string, rate: number, repeat: number, min = 2) => {
+    const n = countSeq(filePrefix);
+    if (n < min) return;
+    const key = `${tex}-${name}`;
+    if (a.exists(key)) a.remove(key); // 지연 로드 완료 후 2프레임 → 6프레임 교체
+    a.create({
+      key,
+      frames: Array.from({ length: n }, (_, i) => ({ key: `${filePrefix}${i}` })),
+      frameRate: rate,
+      repeat,
+    });
+  };
+  mk("idle", `${tex}_idle`, 12, -1);
+  mk("walk", `${tex}_walk`, 12, -1);
+  mk("atk", `${tex}_atk`, 14, 0, 3);
+  mk("die", `${tex}_die`, 10, 0, 3);
+  for (const s of ["sp1", "sp2", "sp3"]) {
+    const n = countSeq(`${tex}_${s}_`);
+    if (n < 2) continue;
+    const key = `${tex}-${s}`;
+    if (a.exists(key)) a.remove(key);
+    a.create({
+      key,
+      frames: Array.from({ length: n }, (_, i) => ({ key: `${tex}_${s}_${i}` })),
+      frameRate: 12,
+      repeat: 0,
+    });
+  }
+}
+
+/** vc178 — 집 꾸미기 가구 아이콘 지연 로드 (fire-and-forget).
+ *  FURNITURE_DEFS의 icon 텍스처가 부트 목록에 없어도 첫 배치 시점에 받는다.
+ *  3라운드 재시도 — loadBodyPrefix와 동일한 내구성. 완료 후 씬 오브제는
+ *  texGuard 동적 로드 체계가 재결합한다. */
+export async function ensureImages(scene: Phaser.Scene, keys: string[]): Promise<void> {
+  const unique = Array.from(new Set(keys)).filter((k) => k && !scene.textures.exists(k));
+  if (unique.length === 0) return;
+  let pending = unique;
+  for (let round = 0; round < 3 && pending.length > 0; round++) {
+    await Promise.all(pending.map((f) => loadImageRaw(scene, f, `assets/${f}.webp`, round > 0)));
+    pending = unique.filter((f) => !scene.textures.exists(f));
+  }
+}
+
+/** v5.0 — 보스 프레임 지연 로드 (idle2+ · walk · atk · die · sp1~3 = 최대 36장).
+ *  Boss 생성자에서 발화(fire-and-forget) — 보스 인트로 연출(수 초) 동안 로드가 끝난다.
+ *  완료 후 registerBossAnims로 12FPS 풀애니 승격. 실패해도 기존 idle 폴백 유지. */
+export async function loadBossFrames(scene: Phaser.Scene, tex: string): Promise<void> {
+  if (!tex) return;
+  const files: string[] = [];
+  for (const s of ["idle", "walk", "atk", "die"]) for (let i = 0; i < 6; i++) files.push(`${tex}_${s}${i}`);
+  for (const s of ["sp1", "sp2", "sp3"]) for (let i = 0; i < 6; i++) files.push(`${tex}_${s}_${i}`);
+  let pending = files.filter((f) => !scene.textures.exists(f));
+  if (pending.length === 0) {
+    registerBossAnims(scene, tex);
+    return;
+  }
+  for (let round = 0; round < 3 && pending.length > 0; round++) {
+    await Promise.all(pending.map((f) => loadImageRaw(scene, f, `assets/${f}.webp`, round > 0)));
+    pending = files.filter((f) => !scene.textures.exists(f));
+  }
+  if (pending.length > 0) {
+    console.warn(`[SERTZ] 보스 프레임 재시도 후에도 누락 — ${tex}: ${pending.length}장`);
+  }
+  registerBossAnims(scene, tex);
+}

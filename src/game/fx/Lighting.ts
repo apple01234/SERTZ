@@ -1,0 +1,196 @@
+import Phaser from "phaser";
+import { loadFx } from "../config";
+
+/**
+ * v4.1.5 — 동적 조명 레이어 (Lighting Framework)
+ *
+ *  지형별 "암전 오버레이" + 광원 스프라이트(ADD 블렌드) 풀로 구성된
+ *  모바일 친화적 2D 조명 시스템. Phaser Light2D 파이프라인(노멀맵 요구·
+ *  스프라이트 전체 파이프라인 교체) 대비:
+ *   - 오버레이 1매 + ADD 광원 N장으로 구성 → 저사양 기기에서도 안정
+ *   - Canvas 렌더러 폴백에서도 동일하게 동작
+ *
+ *  구성:
+ *   1. ambient  — 챕터별 어둠(반투명 렉트, 스크롤 고정, depth 55)
+ *   2. light    — 광원 스프라이트(ADD, depth 56) + 플리커 트윈
+ *   3. player   — 플레이어 추종 횃불 광원(암전 챕터에서 시야 확보)
+ *
+ *  depth 규약: 지형(≤10) < 엔티티(15~30) < 데미지텍스트(40→v4.1.5에서 56으로 상향)
+ *              < 어둠(55) < 광원(56) < 미니맵/HUD(95+)
+ */
+
+/** 챕터별 암전 프로필 — alpha 0 = 암전 없음
+ *  v4.3.0 — 유저 지시 "니플헤임, 요툰헤임, 스바르트알프헤임 등 어두운 분위기의 챕터만 맵 어둡게 + 불빛":
+ *  화산(무스펠헤임)·빛의 성전(알프헤임)은 밝은 분위기라 암전 목록에서 제외하고,
+ *  극지/동굴/광산/저승/심연 계열 5챕터만 암전 + 횃불 광원을 유지한다.
+ *  v1.0.2 (#니플헤임) — 유저 피드백 "지나치게 어둡다": 암전 알파 완화 + 챕터별 횃불 광원 프로필(light) 신설.
+ *  분위기(한기/어둠)는 유지하되 플레이어·NPC·적·아이템·지형이 명확히 보이도록 조정 */
+const CHAPTER_AMBIENT: Record<string, { color: number; alpha: number; light?: { scale: number; alpha: number } }> = {
+  cave: { color: 0x0d0b1e, alpha: 0.42, light: { scale: 1.55, alpha: 0.5 } },       // 7장 스바르트알프헤임 — 어둠 요정의 수정 광맥 (v1.4.13 alpha 0.46→0.42)
+  nidavellir: { color: 0x0d0b1e, alpha: 0.42, light: { scale: 1.5, alpha: 0.5 } }, // 8장 니다벨리르 — 룬 광산 (v1.4.13 0.48→0.42)
+  hel: { color: 0x161016, alpha: 0.38, light: { scale: 1.55, alpha: 0.52 } },        // 9장 헬 (v1.4.13 0.42→0.38)
+  abyss: { color: 0x0b0918, alpha: 0.4, light: { scale: 1.55, alpha: 0.52 } },      // 10장 세계수의 뿌리 — 심연 (v1.4.13 0.44→0.40)
+  /* v1.4.13 (#6 셰이더 약화) — 니플헤임(눈 맵) 암전 0.28→0.18, 횃불 광원 알파 0.66→0.5:
+   * "눈오는 곳 셰이더 너무 강해" 유저 지시 — 암전을 더 얕게, 시야 가독성 확보.
+   * v1.4.30 (#11 니플헤임 눈부심) — 반대 피드백 "니플헤임 너무 밝아서 눈아파": 암전 0.18→0.38로
+   * 복원(헬·심연 수준)하고 흰 눈바닥 틴트(WorldScene GROUND_TINT)로 전체 톤 다운.
+   * 횃불 광원은 1.6/0.55로 확대해 어두워진 만큼 시야는 확보된다.
+   * v1.4.31 (#6) — 유저 재지시 "여전히 너무 밝음": 암전 0.38→0.52 (전 챕터 최고 암전 —
+   * 빛 반사율 높은 눈 지형 특성상 동일 알파도 체감 밝기가 높다). 횃불 1.6/0.55 유지로 시야 확보. */
+  /* vc147 (#21) — "니플헤임 너무 어두움 (눈 지형 느낌이 안남)":
+   *  v1.4.31의 0.52(전 챕터 최고 암전)는 vc146 전역 감광(삭제됨)과 겹쳐 눈 지형이
+   *  밤바다처럼 보이던 원인. 암전 0.30(헬·심연 이하 수준)으로 완화하고 색도 남색→
+   *  청백 얼음톤으로 바꿔 "눈 지형" 체감을 살린다. 횃불 광원 2.0/0.65로 확대해
+   *  시야 확보 + 지면 틴트(WorldScene 0xc4d6ea)와 함께 밝은 설원 톤 완성. */
+  niflheim: { color: 0x16283e, alpha: 0.3, light: { scale: 2.0, alpha: 0.65 } },    // 6장 니플헤임 — 얼음의 성전
+};
+
+export type AmbientProfile = { color: number; alpha: number; light?: { scale: number; alpha: number } } | null;
+
+/** 챕터 키로 암전 프로필 조회 (비암전 챕터는 null) */
+export function ambientFor(chapter: string): AmbientProfile {
+  return CHAPTER_AMBIENT[chapter] ?? null;
+}
+
+export type LightOpts = {
+  /** 광원 색조 (기본 따뜻한 횃불빛) */
+  tint?: number;
+  /** 반경 배율 (pk_light_01 512px 기준) */
+  scale?: number;
+  /** 기본 밝기 */
+  alpha?: number;
+  /** 플리커(깜빡임) 진폭 — 0이면 정상광 */
+  flicker?: number;
+};
+
+export class Lighting {
+  private scene: Phaser.Scene;
+  private overlay: Phaser.GameObjects.Rectangle | null = null;
+  private lights: Phaser.GameObjects.Image[] = [];
+  private playerLight: Phaser.GameObjects.Image | null = null;
+  private ambientAlpha = 0;
+  private baseScale = 1;
+  private baseAlpha = 0;
+  private flickerAmt = 0;
+  private phase = Math.random() * Math.PI * 2;
+  /** v4.2.0 — 구역 진행에 따른 횃불 축소 배율 (1 = 기본, 구역마다 ×0.93, 최소 0.4) */
+  private torchMul = 1;
+
+  constructor(scene: Phaser.Scene) {
+    this.scene = scene;
+  }
+
+  /** 챕터 암전 + 플레이어 광원 구성 — create()에서 1회 호출 */
+  setupAmbient(chapter: string, hasPlayer: boolean) {
+    const prof = ambientFor(chapter);
+    if (!prof) return;
+    const cam = this.scene.cameras.main;
+    this.ambientAlpha = prof.alpha;
+    // 어둠 오버레이 — 카메라 고정(스크롤 무관). 카메라 크기보다 넉넉히(회전/줌 대비)
+    this.overlay = this.scene.add
+      .rectangle(0, 0, cam.width + 4, cam.height + 4, prof.color, prof.alpha)
+      .setOrigin(0)
+      .setScrollFactor(0)
+      .setDepth(55);
+    // 플레이어 추종 광원 — 암전 챕터에서 시야 확보 (횃불을 든 사냥꾼)
+    if (hasPlayer) {
+      /* v1.0.2 (#니플헤임) — 챕터별 횃불 프로필: 어두운 챕터일수록 넉넉한 기본 광원 */
+      const lp = prof.light ?? { scale: 1.35, alpha: 0.5 };
+      this.playerLight = this.scene.add
+        .image(0, 0, "pk_light_01")
+        .setDepth(56)
+        .setBlendMode(Phaser.BlendModes.ADD)
+        .setTint(0xffc890)
+        .setScale(lp.scale)
+        .setAlpha(lp.alpha);
+      this.baseScale = lp.scale;
+      this.baseAlpha = lp.alpha;
+      /* v1.0.18 — 플리커 완화 모드: 횃불 깜빡임 진폭 0 (빛 자체는 유지) */
+      this.flickerAmt = loadFx().noFlicker ? 0 : 0.05;
+    }
+  }
+
+  /** v1.0.18 — 보스전 밝기 부스트: 어두운 챕터라도 보스전 동안은 암전을 완화하고
+   *  횃불 광원을 최대로 키워 플레이어·보스·바닥 판정이 항상 보이게 한다 (유저 지시). */
+  setBossFight(on: boolean) {
+    if (!this.overlay) return;
+    const profAlpha = this.ambientAlpha;
+    const target = on ? Math.min(profAlpha, 0.2) : profAlpha;
+    this.scene.tweens.add({ targets: this.overlay, alpha: target, duration: 450 });
+    if (on) {
+      this.torchMul = 1.3; // 보스전 동안 횃불 확대 (구역 축소 무시)
+      this.playerLight?.setScale(this.baseScale * 1.45);
+      this.playerLight?.setAlpha(Math.min(1, this.baseAlpha * 1.35));
+    } else {
+      this.playerLight?.setScale(this.baseScale * this.torchMul);
+      this.playerLight?.setAlpha(this.baseAlpha);
+    }
+  }
+
+  /** v4.2.0 — 구역(sub) 진행률에 따른 횃불 광원 축소 (유저 지시: 스테이지를 지날때마다 줄어들게 —
+   *  보스 구역에서 시야가 좁아져 투사체 회피 난이도 상승). sub 1 = 100%, 이후 구역마다 ×0.93, 하한 40%.
+   *  밝은 챕터(오버레이 없음)는 효과가 체감되지 않는다 (암전 챕터에서만 의미 있음). */
+  setTorchStage(sub: number) {
+    /* v1.0.2 (#니플헤임) — 축소 하한 40%→55%: 보스 구역에서도 전투 가독성 유지 */
+    this.torchMul = Math.max(0.55, 1 - Math.max(0, sub - 1) * 0.07);
+    if (this.playerLight) {
+      this.playerLight.setScale(this.baseScale * this.torchMul);
+      this.playerLight.setAlpha(this.baseAlpha * (0.7 + 0.3 * this.torchMul));
+    }
+  }
+
+  /** 정적 광원 등록 (횃불/모닥불/포탈/수정 등) — ADD 글로우 + 플리커
+   *  v1.0.18 — 플리커 완화 모드면 트윈 없이 고정 광원 */
+  addLight(x: number, y: number, opts: LightOpts = {}) {
+    const tint = opts.tint ?? 0xffa040;
+    const scale = opts.scale ?? 0.9;
+    const alpha = opts.alpha ?? 0.3;
+    const flicker = loadFx().noFlicker ? 0 : (opts.flicker ?? 0.08);
+    const g = this.scene.add
+      .image(x, y, "pk_light_01")
+      .setDepth(56)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setTint(tint)
+      .setScale(scale)
+      .setAlpha(alpha);
+    if (flicker > 0) {
+      this.scene.tweens.add({
+        targets: g,
+        alpha: Math.min(1, alpha + flicker * 2),
+        scale: scale * 1.12,
+        duration: 480 + Math.random() * 420,
+        yoyo: true,
+        repeat: -1,
+        ease: "Sine.inOut",
+      });
+    }
+    this.lights.push(g);
+    return g;
+  }
+
+  /** 매 프레임 갱신 — 플레이어 광원 추적 + 미세 플리커 (update에서 호출)
+   *  v1.0.18 — 플리커 완화 모드면 f=1 고정 (깜빡임 제거) */
+  update(px: number, py: number, dt: number) {
+    if (this.playerLight) {
+      const k = 1 - Math.pow(0.001, dt / 1000); // 프레임율 독립 보간
+      this.playerLight.x += (px - this.playerLight.x) * k;
+      this.playerLight.y += (py - this.playerLight.y) * k;
+      const noFlicker = this.flickerAmt === 0;
+      if (!noFlicker) this.phase += dt * 0.006;
+      const f = noFlicker ? 1 : 1 + Math.sin(this.phase) * this.flickerAmt + Math.sin(this.phase * 2.7) * this.flickerAmt * 0.5;
+      /* v4.2.0 — torchMul 반영: 구역 진행할수록 작아지고 어두워지는 횃불 */
+      this.playerLight.setAlpha(this.baseAlpha * f * (0.7 + 0.3 * this.torchMul));
+      this.playerLight.setScale(this.baseScale * this.torchMul * (1 + (f - 1) * 0.35));
+    }
+  }
+
+  /** 씬 종료 정리 — shutdown에서 호출 */
+  destroy() {
+    this.overlay?.destroy();
+    this.overlay = null;
+    for (const l of this.lights) l.destroy();
+    this.lights = [];
+    this.playerLight?.destroy();
+    this.playerLight = null;
+  }
+}

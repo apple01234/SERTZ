@@ -1,0 +1,210 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+.env*
+
+# vercel
+.vercel
+
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+local-*
+.claude
+.z-ai-config
+*.log
+dev.log
+dev.out.log
+test
+prompt
+
+server.log
+# Skills directory
+/skills/backups/
+
+# ── 자율 개발 루프: 런타임 산물은 저장소에서 제외 ──
+# 로그 (한 바퀴마다 쌓이는 날짜별 로그)
+/logs/
+# 루프 신호/상태 파일 (STOP=꺼짐 스위치, pid/lock=실행 상태)
+loop/STOP
+loop/loop.pid
+loop/loop.lock
+loop/loop-console.log
+# 빌드 산출물 (APK 등) — 배포는 GitHub 릴리스 자산으로만 (저장소 미추적)
+*.apk
+*.aab
+android/app/build/
+backups/
+.gh_*
+.device_*
+nohup.out
+out/
+.next-apk/
+prev-project/
+upload/
+
+# android (capacitor)
+android/.gradle
+android/local.properties
+android/capacitor-cordova-android-plugins
+android/app/src/main/assets
+*.keystore
+*.jks
+# v1.0.16 보안 — 서명 키·비밀번호는 저장소에 두지 않는다.
+#  종전 `!android/sertz-release.keystore` 부정 규칙이 커밋을 허용하고 있었다(public 저장소에 키 노출).
+#  로컬 빌드: android/keystore.properties (템플릿 keystore.properties.example) · CI: GitHub Secrets
+android/keystore.properties
+tool-results/
+
+tmp/
+upload/
+asset_work/
+
+# electron exe build scraps (v3.0.8 — 재빌드 가능 산출물 추적 금지)
+/electron/dist/
+/electron/game/
+/.next-apk/
+/upload/extracted/
+*.nsis.7z
+/upload/
+tmp_design/
+download/*.apk
+# v3.0.26 — 141MB APK 분할 파트도 git 제외 (대용량 바이너리 → 서버 직결 다운로드로만 배포)
+download/*.apk.part*
+# vc148 — IPA도 GitHub 100MB 제한 대상 (릴리스 자산으로만 배포, 저장소 미추적)
+download/*.ipa
+download/*.aab
+# v1.0.16 — mapping.txt도 릴리스 자산으로만 배포한다 (28.9MB 정본 1벌이 저장소에 남아 있었다).
+#  CI가 매 빌드마다 SERTZ-vc<CODE>-mapping.txt로 생성해 릴리스에 업로드한다(android-build.yml).
+download/*-mapping.txt
+
+# platform sandbox dirs
+tool-results/
+upload/
+dev.log
+server.log
+*.log.tmp
+.android-sdk/
+.apk-hold/
+jdk17/
+.android-sdk/jdk21/
+
+# v1.0.15 보안 — 계정 백업 DB는 절대 추적하지 않는다.
+#  공개 저장소에 커밋되면 복호화 키가 소스에 있으므로(ghdb.ts/accounts) 계정·세션 토큰이
+#  그대로 노출된다. 백업은 CERTZ-DB(private)로만 간다.
+db-backup/
+
+# local secrets (NEVER commit) — AdMob OAuth service account / API keys
+.secrets/
+# v1.4.22 (#FC백업토큰) — 계정 백업 인증용 토큰 파일(워크스페이스 루트·standalone 내 복사본).
+#  FC 패키지(.git·env 부재)에서 accounts ghToken()이 읽는다. 유출 시 계정 백업 쓰기 탈취 위험.
+/github_token
+
+# v4.1.6 — 성능 최적화 중간 산출물
+/scripts/_a2b/
+/scripts/_webp/
+/scripts/_*.log
+/scripts/_ff*.txt
+/scripts/_enc_test.ogg
+/scripts/_seg_*.ogg
+/scripts/_mid.wav
+ref/
+ui_check_*.png
+research/
+*.7z
+db/
+download/*.zip
+skills-workspace/
+
+# v1.0.13 — 검증 스크린샷 리포트 유입 차단 (에셋 아님)
+scripts/*.png
+scripts/_perf_charts/
+download/*.png
+server.pid
+
+# v1.4.13 — 배포 실패 원인: 저장소 과대 (skills/ 전체 + Unity/Kenney 에셋 추출물 등 ~270MB)
+# 게임 빌드/배포에는 불필요한 산출물·참조자료 전부 git 추적에서 제외
+/skills/
+/scripts/_unity_extract/
+/scripts/kenney_pp/
+/scripts/kenney_pp.zip
+/scripts/sfx-fetch/
+/scripts/_sfx_backup_rubberduck/
+/scripts/diag/
+/scripts/union_raw/
+/scripts/boss_raw/
+/scripts/boss_raw2/
+/scripts/archdoc/
+/scripts/bgm_work/
+/scripts/preview/
+/scripts/_preview/
+/scripts/asset_work/
+.zscripts/
+apk_build_v106.status
+dev.log
+server.log
+*.log
+vercel-deploy.log
+download/Capture/
+
+# vc142 — 구글드라이브 원본 에셋팩 (원칙: 크롭본만 public/assets에 커밋)
+download/gdrive_vfx/
+.secrets/
+
+# v1.2.2 — SFX 정규화 원본 백업 (배포·커밋 대상 아님, 118MB)
+public/assets/audio/.orig/
+public/assets/audio/sfx/.orig/
+__pycache__/
+
+# vc204 — 되돌리기용 백업 (커밋 제외, 로컬 보존)
+public/assets/audio/.pre_vc204/
+public/assets/audio/.orig_vc203/
+public/assets/skillicon/_orig/
+
+# vc212 — 타일/VFX 원본 백업 (로컬 전용)
+public/assets/.tile_backup/
+public/assets/.vfx_backup/
+assets_backup/
+
+# vc229 — 작업용 원본 에셋 (원칙: 크롭본만 public/assets에 커밋)
+assets_dl/
+assets_src/
+assets_backup_monster_run/
+vendor/pixelfx/records
+SERTZ-web-*.tar.gz
+.fxtest/
+
+# Browser/MCP evidence is generated locally.
+.playwright-mcp/
+memory-oath-title.png

@@ -1,0 +1,1002 @@
+import Phaser from "phaser";
+import { GROUND_TILE_MAP } from "../tileThemes";
+import { AURA_TEXTURE_LOADS } from "../fx/auraTextures";
+import { DECOR_SETS } from "../decorObjects";
+import { TILE_PNG_KEYS } from "../tilePng"; // vc206 (#11) — PNG 원본 우선 로드
+import { buildAllAnims, registerBossAnims, BOSS_ATLAS } from "../textures";
+import { CORE_BODY_PREFIXES } from "../data";
+import { BGM_PRELOAD_TRACKS, SKILL_SFX_TRACKS } from "../audio";
+import { hookLoaderForGuard, runTexGuardCycle, getTexGuardStats, installEngineFrameGuard } from "../texGuard";
+
+/**
+ * 외부 에셋 로드 (public/assets/)
+ *  그래픽:
+ *   - Zelda-like (ArMM1998, CC0): 주인공/타일/장식/하트/? 마커/파편/불꽃
+ *   - Kenney Tiny Dungeon & Roguelike & Particle Pack & Light Masks (CC0):
+ *       고스트 하수인/나무/횃불/화살표/글로우·링·구슬·스코치/빛기둥
+ *       + 물약·무기·방패·상인 NPC·금화 (2D MMORPG 기본 요소)
+ *   - Weapon Slash - Effect (Cethiel, CC0): 참격 6프레임
+ *   - Animated Portal (varkalandar, CC-BY 4.0): 차원문 8프레임
+ *   - LPC Wolf (williamthompsonj, CC-BY): 늑대 / Sotrak Rewop (gilgaphoenixignis, CC-BY): 보스
+ *  오디오:
+ *   - Retro Game Music Pack (Juhani Junkala, CC0): BGM 3트랙 (title/field/boss)
+ *   - OpenGameArt BGM 5트랙 (v1.2): TownTheme(cynicmusic CC0) / cave theme(HaelDB CC0)
+ *     / snow theme(CC0) / Mystical Theme(Alexandr Zhelanov CC-BY 3.0) / Dark Descent(Matthew Pablo CC-BY 3.0)
+ *   - 80 CC0 RPG SFX / creature SFX (Rubberduck, CC0): 효과음 12종
+ *  절차 텍스처 생성은 없음 — 전부 실제 에셋.
+ */
+
+/** v3.0.2 — 신규 외부 에셋 정의 (CC0) */
+const X2_MONSTERS = [
+  "x2_frog", "x2_rat", "x2_bat", "x2_firebird", "x2_frostfly",
+  "x2_snail", "x2_stonegolem", "x2_darkhound", "x2_reeffish",
+] as const;
+/** v3.0.3 — 0x72 DungeonTileset II (itch.io) 신규 몬스터 7종 */
+const X3_MONSTERS = [
+  "x3_swampy", "x3_imp", "x3_icezombie", "x3_tinyzombie",
+  "x3_ogre", "x3_chort", "x3_necromancer",
+  /* v3.0.4 — itch.io 0x72 팩 추가 6종 (지시 #8 — itch.io 에셋 확대) */
+  "x3_maskedorc", "x3_orcwarrior", "x3_orcshaman", "x3_wogol", "x3_goblin", "x3_bigzombie",
+] as const;
+/** [키, 시트폭, 프레임폭] — 프레임폭은 시트 높이와 동일 (가로 나열) */
+const X2_SPELLS: [string, number, number][] = [
+  ["x2_sp_arcane", 96, 16],
+  ["x2_sp_magicorb", 96, 16],
+  ["x2_sp_fireball", 96, 16],
+  ["x2_sp_icelance", 64, 16],
+  ["x2_sp_darkbolt", 96, 16],
+  ["x2_sp_sparks", 96, 16],
+];
+
+/** vc149 (#14) — 유저 제공 GameVFX 3D 팩 추출산출 81종 (public/assets/vfx3/).
+ *  UNI VFX·Cartoon FX Remaster·GameVFX Buff Collection — scripts/vc149_gvfx_convert.py.
+ *  gv_rune_* 2종은 마법 계열 전용 룬. */
+export const GVFX3_LIST = [
+  "gv_cfxr_aura_rays",
+  "gv_cfxr_aura_runic",
+  "gv_cfxr_electric_arc_anim_x4",
+  "gv_cfxr_electric_arcs_x4",
+  "gv_cfxr_ember_blur",
+  "gv_cfxr_fire_circle_drawn",
+  "gv_cfxr_flamme_crisp",
+  "gv_cfxr_heart",
+  "gv_cfxr_hit_triangle",
+  "gv_cfxr_hit_triangle_dissolve",
+  "gv_cfxr_magic_star",
+  "gv_cfxr_puddle",
+  "gv_cfxr_ring_electric",
+  "gv_cfxr_ring_ice",
+  "gv_cfxr_ring_spikes_revert",
+  "gv_cfxr_skull_2",
+  "gv_cfxr_smoke_cloud_x4_white",
+  "gv_cfxr_star_blurred",
+  "gv_cfxr_stretch_ray_blur",
+  "gv_cfxr_stretch_sipkes_x2",
+  "gv_cfxr_stretch_spike_fade",
+  "gv_cfxr_sword_trail_mask_light",
+  "gv_cfxr_sword_trail_mask_lines",
+  "gv_cfxr_water_small_splash_stretch",
+  "gv_circle",
+  "gv_circle2",
+  "gv_crack",
+  "gv_craterfree1",
+  "gv_crystalfree1",
+  "gv_electric_splat_hit_02",
+  "gv_electro03",
+  "gv_flare02_white",
+  "gv_flashfree1",
+  "gv_flashfree2",
+  "gv_flashfree3",
+  "gv_glow_blue_01",
+  "gv_glow_yellow_01",
+  "gv_glowblurry",
+  "gv_glowfree1",
+  "gv_gradient2",
+  "gv_hexagon_01",
+  "gv_lightning02_01_blue",
+  "gv_poison_smoke_pink",
+  "gv_projectilefree1",
+  "gv_ring02",
+  "gv_rune_big",
+  "gv_rune_glow",
+  "gv_smoke26",
+  "gv_smoke_pink2",
+  "gv_smokefree1",
+  "gv_snowflake",
+  "gv_splat",
+  "gv_sprite_lensflare",
+  "gv_star",
+  "gv_star4",
+  "gv_stylizedtrail03",
+  "gv_techcircle2",
+  "gv_trail_pink",
+  "gv_twink_01",
+  "gv_twinkle_b",
+  "gv_uni_circle_aggressive",
+  "gv_uni_circle_hazy",
+  "gv_uni_cone_long",
+  "gv_uni_energybolts",
+  "gv_uni_energynoise",
+  "gv_uni_energyweb",
+  "gv_uni_exp_core",
+  "gv_uni_flare_xo",
+  "gv_uni_glow",
+  "gv_uni_linelong",
+  "gv_uni_shockwave_fiery",
+  "gv_uni_smoke",
+  "gv_uni_spark",
+  "gv_uni_specks",
+  "gv_uni_streaks_horizontal",
+  "gv_uni_tile_fiery",
+  "gv_uni_tile_spiky",
+  "gv_uni_tile_starry",
+  "gv_uni_trail_ghost",
+  "gv_uni_trail_wave",
+  "gv_wispysmoke03b_8x8",
+] as const;
+
+/** v1.3.0 (#에셋통합) — 유저 Drive 팩 변환산출 VFX 텍스처 58종 (public/assets/vfx2/).
+ *  전투 타격감(참격/크리/폭발)·오라 링·번개·마법진·불꽃놀이·원소 이펙트.
+ *  scripts/prep_drive_assets.py — Matthew Guz Slash·GameVFX Buff·Vefects Anime·
+ *  Hovl Magic·UNI VFX·CartoonVFX Fireworks·Cherry Petals에서 선별 변환. */
+export const VFX3_LIST = [
+  /* Matthew Guz Slash Effects FREE — 근접 타격감 */
+  "vfx_slash", "vfx_slash_m", "vfx_slash_turn", "vfx_crit", "vfx_explosion",
+  "vfx_shock", "vfx_fire", "vfx_spark",
+  /* GameVFX Buff Collection — 오라/버프/번개 */
+  "vfx_bolt", "vfx_bolt2", "vfx_flare", "vfx_twinkle", "vfx_star4",
+  "vfx_ring", "vfx_arc", "vfx_hex", "vfx_glowb", "vfx_glowy", "vfx_furnace",
+  /* Vefects Anime Stylized VFX — 스킬 임팩트/파티클 */
+  "vfx_ist", "vfx_is2", "vfx_ltn1", "vfx_ltn2", "vfx_ltn3",
+  "vfx_cl1", "vfx_cl2", "vfx_cl3",
+  "vfx_pt1", "vfx_pt2", "vfx_pt3", "vfx_pt4", "vfx_pt5", "vfx_pt6", "vfx_pt7", "vfx_pt8",
+  "vfx_ring1", "vfx_ring3", "vfx_flower", "vfx_arrowp",
+  /* Hovl Studio Magic effects — 마법진/원소 */
+  "vfx_magic", "vfx_magic2", "vfx_snow", "vfx_splat", "vfx_heal_heart",
+  "vfx_crystal", "vfx_proj", "vfx_flash",
+  /* UNI VFX Missiles & Explosions — 폭발/별 */
+  "vfx_starry", "vfx_shockf", "vfx_expc", "vfx_wisp",
+  /* CartoonVFX9X Fireworks — 축하 연출(레벨업/랭킹) */
+  "vfx_fw_heart", "vfx_fw_moon", "vfx_fw_star_b", "vfx_fw_star_y", "vfx_fw_tri", "vfx_fw_smile",
+  /* Cherry Petals — 봄 시즌 연출용 */
+  "vfx_petal",
+] as const;
+
+/** v1.4.32 (지시 #7) — Hovl Magic effects 팩 이펙트 텍스처 8종 (public/assets/fx2/) */
+export const FX2_LIST = [
+  "fx_Circle", "fx_Circle2", "fx_Electro", "fx_Flare",
+  "fx_Flash", "fx_FlashFree1", "fx_FlashFree2", "fx_FlashFree3",
+] as const;
+
+/** v1.3.0 — Drive 팩 VFX 사운드 48종 (Vefects WAV → OGG 변환, public/assets/audio/sfx/) */
+export const SFX3_LIST = [
+  "sfx_hit_basic", "sfx_arrow_cast", "sfx_arrow_hit", "sfx_bomb_cast", "sfx_bomb_exp",
+  "sfx_fire_cast", "sfx_fire_hit", "sfx_bolt_cast", "sfx_bolt_hit", "sfx_heal_cast",
+  "sfx_buff_cast", "sfx_debuff_cast", "sfx_dash2", "sfx_pickup2", "sfx_explosion", "sfx_explosion_ice",
+  "sfx_aoe_fire_cast", "sfx_aoe_fire_burst", "sfx_aoe_ice_cast", "sfx_aoe_ice_burst",
+  "sfx_aoe_light_cast", "sfx_aoe_light_burst", "sfx_aoe_dark_cast", "sfx_aoe_dark_burst",
+  "sfx_aoe_elec_cast", "sfx_aoe_elec_burst", "sfx_aoe_earth_cast", "sfx_aoe_earth_burst",
+  "sfx_aoe_water_cast", "sfx_aoe_water_burst", "sfx_aoe_poison_cast", "sfx_aoe_poison_burst",
+  "sfx_aoe_void_cast", "sfx_aoe_void_burst", "sfx_aoe_heal_cast", "sfx_aoe_heal_burst",
+  "sfx_aoe_nature_cast", "sfx_aoe_nature_burst", "sfx_aoe_magma_burst", "sfx_aoe_crystal_burst",
+  "sfx_aoe_blood_burst", "sfx_aoe_air_burst",
+  "sfx_smoke_fire", "sfx_smoke_snow", "sfx_smoke_thunder", "sfx_smoke_toxic", "sfx_smoke_gold", "sfx_smoke_dark",
+] as const;
+
+const ASSET_LIST = [
+  // 타일
+  "tile_grass",
+  /* v1.4.35 (유저 지시 #5) — 정식 타일셋(TopDown 2D RPG BE3 / Tiles.png)에서 추출한
+   *  지면 타일. WorldScene 이 tile_grass 등을 이 팩 타일로 치환해 깐다.
+   *  ⚠ 여기 등록되지 않으면 textures.exists() 가 false 라 치환이 조용히 무시되고
+   *    기존 절차 생성 타일이 그대로 나온다(실제로 그렇게 한 번 놓쳤다).
+   *  변형(_v1/_v2)은 64px 주기 규칙 반복을 깨기 위한 것이다. */
+  "tile_grass_pack", "tile_grass_pack_v1", "tile_grass_pack_v2",
+  "tile_sand_pack", "tile_sand_pack_v1", "tile_sand_pack_v2",
+  "tile_water_pack", "tile_water_pack_v1", "tile_water_pack_v2",
+  "tile_dirt_pack", "tile_dirt_pack_v1", "tile_dirt_pack_v2",
+  "tile_path",
+  "tile_dark",
+  "tile_snow",
+  "tile_ice",
+  "tile_cave",
+  "tile_abyss",
+  "tile_path_dark",
+  // v2.0 아뜰란티스 확장 타일 (v1.5 이관)
+  "tile_magma", "tile_magma_path", "tile_stone", "tile_hel",
+  /* vc196 — 무료 타일맵(Kenney CC0) 128px 심리스 19종 */
+  "tile_amber", "tile_ash", "tile_blood", "tile_deep", "tile_desert", "tile_forest", "tile_garden", "tile_grass2", "tile_lava", "tile_morgue", "tile_moss", "tile_nebula", "tile_ruin", "tile_sand", "tile_vault",
+  /* vc204 — 지면으로 승격한 256px 지형 타일. 이전에는 파일만 있고 등록되지 않아
+   *  textures.exists() 가 false 였고 tileThemes.ts 의 치환이 조용히 무시됐다.
+   *  (등록 누락 = 지면이 오염 타일 그대로 나옴. 추가 시 반드시 여기 넣을 것) */
+  "tile_basalt", "tile_bone", "tile_cave_wet", "tile_dirt", "tile_gold", "tile_grass_flower", "tile_metal", "tile_rust", "tile_void",
+  // v3.0.23 (#55) — 던전 벽 석벽 텍스처 (구 x2_bricks "검은 카펫" 교체)
+  "wall_rock",
+  /* vc204 — 지면 경계(오토타일) 오버레이 아틀라스.
+   *  4x4 = 16프레임(256px), 프레임 인덱스 = 4비트 이웃 마스크.
+   *  내부는 기존 TileSprite 그대로 두고, 벽과 맞닿은 경계 셀에만 이 프레임을
+   *  덮어 지형 경계를 만든다(추가 텍스처 1장, 원본 화질 손실 0).
+   *  생성: tools/build_autotile_edges.py — 마스크 규칙은 게임 빌드 실측
+   *  (tools/autotile_derive.py)에서 역산했다. */
+  "autotile_edge",
+  // 장식
+  "tree",
+  "pine",
+  "pine_snow",
+  "pine_dark",
+  /* v1.4.19 (스크린샷 검은 사각형 수정) — v1.4.11에서 나무 배치 풀(treeSet)에
+   *  kd_plant 3종을 합류시키면서 부트 로드 목록에 등록하지 않았던 누락.
+   *  로드되지 않은 키는 Phaser __MISSING 폴백으로 렌더돼 "검은 사각형+녹색
+   *  대각선" 글리치로 보였다 (마을 나무의 절반 확률로 발생). */
+  "kd_plant1",
+  "kd_plant2",
+  "kd_plant3",
+  "torch",
+  "rock",
+  "rock_snow",
+  "rock_dark",
+  "rock_stone",
+  "flower_r",
+  "flower_y",
+  "flower_w",
+  // v2.2 실내 소품 (여관/내 집)
+  "cv_candle",
+  "sv_door",
+  // 주인공
+  "hero_idle0", "hero_idle1", "hero_idle2", "hero_idle3",
+  "hero_walk0", "hero_walk1", "hero_walk2", "hero_walk3",
+  "hero_walkside0", "hero_walkside1", "hero_walkside2", "hero_walkside3",
+  "hero_walkup0", "hero_walkup1", "hero_walkup2", "hero_walkup3",
+  "hero_atk0", "hero_atk1", "hero_atk2", "hero_atk3",
+  "hero_atkdown0", "hero_atkdown1", "hero_atkdown2", "hero_atkdown3",
+  "hero_atkup0", "hero_atkup1", "hero_atkup2", "hero_atkup3",
+  // 몬스터
+  "wolf_idle0", "wolf_idle1",
+  "wolf_run0", "wolf_run1", "wolf_run2", "wolf_run3",
+  "wolf_atk0",
+  "minion_idle0", "minion_idle1",
+  "minion_run0", "minion_run1", "minion_run2", "minion_run3",
+  "spider_idle0", "spider_idle1",
+  "spider_run0", "spider_run1", "spider_run2", "spider_run3",
+  "golem_idle0", "golem_idle1",
+  "golem_run0", "golem_run1", "golem_run2", "golem_run3",
+  "frostwolf_idle0", "frostwolf_idle1",
+  "frostwolf_run0", "frostwolf_run1", "frostwolf_run2", "frostwolf_run3",
+  "icegolem_idle0", "icegolem_idle1",
+  "icegolem_run0", "icegolem_run1", "icegolem_run2", "icegolem_run3",
+  "wraith_idle0", "wraith_idle1",
+  "wraith_run0", "wraith_run1", "wraith_run2", "wraith_run3",
+  // v2.0 아뜰란티스 확장 몬스터 (v1.5 이관)
+  "swampbeast_idle0", "swampbeast_idle1",
+  "swampbeast_run0", "swampbeast_run1", "swampbeast_run2", "swampbeast_run3",
+  "emberwolf_idle0", "emberwolf_idle1",
+  "emberwolf_run0", "emberwolf_run1", "emberwolf_run2", "emberwolf_run3",
+  "firespirit_idle0", "firespirit_idle1",
+  "firespirit_run0", "firespirit_run1", "firespirit_run2", "firespirit_run3",
+  "runegolem_idle0", "runegolem_idle1",
+  "runegolem_run0", "runegolem_run1", "runegolem_run2", "runegolem_run3",
+  "helhound_idle0", "helhound_idle1",
+  "helhound_run0", "helhound_run1", "helhound_run2", "helhound_run3",
+  /* v1.4.31 (#4 보스 개편) — 아틀라스 보스(boss/boss2/boss3·nidhog/surt/fenrir/skoll)는
+   *  개별 idle0/1 이미지 철수 → atl_* 스프라이트시트 1장으로 대체 (preload 후반 로드).
+   *  구형 유지 보스(jorm/gram/abudditos)는 개별 프레임 경로 유지 */
+  "boss_jorm_idle0", "boss_jorm_idle1",
+  "boss_gram_idle0", "boss_gram_idle1",
+  "boss_abudditos_idle0", "boss_abudditos_idle1",
+  // 퀘스트/이펙트 소스
+  "fragment",
+  "spark",
+  "sparkle0", "sparkle1",
+  "impact_star",
+  "flame0", "flame1", "flame2", "flame3",
+  /* v1.3.0 (#5 오라 강화) — 유저 지시 "캐시상점에서 산 오로라류 아이템 작동안함"의 본질:
+   *  기존 오라가 너무 미약해 착용해도 인지 불가였다. GameVFX/Hovl Studio 실사운 에셋으로
+   *  룬 서클+링+궤도 위스프를 깔아 "착용 즉시 보이는" 오라로 재탄생 */
+  "aura_ring",   // GameVFX Buff Collection — 흰 링 (틴트용)
+  "aura_circle", // Hovl Studio Magic Effects — 매직 서클 (발판 룬)
+  "aura_wisp",   // GameVFX — 글로우 볼 (궤도 위스프)
+  "aura_glow2",  // GameVFX — 청 글로우 (발광 보강)
+  /* v1.3.0 (#8 에셋 활용) — Vefects/Hovl/PixelFX/Cainos/Petal 3대 팩 선별 텍스처 */
+  "vfx3_impact",  // Vefects — 크리티컬 별burst
+  "vfx3_ring",    // Vefects — 레벨업 링
+  "vfx3_slash",   // Vefects — 참격 플래시
+  "vfx3_heart",   // Hovl — 회복 하트
+  "vfx3_flower",  // Vefects — 수집 꽃
+  "vfx3_flare",   // Hovl — 발사체 글로우
+  "px_fire0", "px_fire1", "px_fire2", "px_fire3", "px_fire4",           // PixelFX — 모닥불 화염
+  "cainos_water0", "cainos_water1", "cainos_water2", "cainos_water3",   // Cainos — 분수 물 튀김
+  "petal0",        // Petal Particles — 벚꽃잎
+  // RPG 기본 요소 (2D MMORPG) — Kenney Tiny Dungeon/Roguelike CC0
+  "item_coin",
+  "item_potion_hp", "item_potion_mp",
+  // v2.5 신규 아이템 아이콘 (상급 물약/상위 장비/장신구/스크롤)
+  "item_potion_hp2", "item_potion_mp2",
+  "item_weapon_5", "item_weapon_6",
+  "item_armor_5", "item_armor_6",
+  "item_ring_crit", "item_ring_guard",
+  "item_scroll_return", "item_scroll_warp",
+  "item_scroll_star", // v3.0.7 — 강화 주문서
+  "item_potion_elixir", // v3.0.20 (#7) — 엘릭서 (HP/MP 전부 회복)
+  /* v1.0.8 무한 콘텐츠 — 제작 재료 아이콘 3종 (scripts/gen_mat_icons.py 픽셀아트) */
+  "item_mat_mana", "item_mat_heart", "item_mat_mithril",
+  "item_weapon_1", "item_weapon_2", "item_weapon_3", "item_weapon_4",
+  "item_armor_1", "item_armor_2", "item_armor_3", "item_armor_4",
+  "npc_merchant",
+  /* v1.2.3 — 씹덕 스타일 NPC 6종 (32x48, tools/gen-npc.js로 생성).
+   *  기존 npc_merchant(32x32)·spum_* 과 같은 픽셀 밀도·SD 비율·1px 외곽선 규칙을 따른다. */
+  "npc_guide_lily", "npc_scholar_mio", "npc_mage_rin",
+  "npc_merchant_nyan", "npc_witch_nyx", "npc_fairy_aria",
+  /* 시작 마을 (인간들의 마을) — v4.1.8: 무료 플레이스홀더 npc_villager1/2·npc_jobmaster 제거,
+   *  Unity 에셋스토어 유료 SPUM 캐릭터(spum_*)로 전면 교체 (아래 목록 참조) */
+  "house_a", "house_b", "well",
+  // 펫 (v1.9 BM)
+  "pet_slime", "pet_pixie",
+  // v3.0.6 — BM 상점 신규 아이콘 (에메랄드 전용)
+  "pet_atlas", "cos_aurora", "ring_bless", "buff_king",
+  // VFX (외부 에셋)
+  "slash0", "slash1", "slash2", "slash3", "slash4", "slash5",
+  "shock_ring",
+  "ring",
+  "glow",
+  "orb",
+  "scorch",
+  "beam",
+  "edge_arrow",
+  "quest_mark",
+  "portal0", "portal1", "portal2", "portal3",
+  "portal4", "portal5", "portal6", "portal7",
+  // v2.0 배치1 — 업로드 무료 에셋 팩 장식 (docs/ASSET_BATCH1.md — 사용자 지시 #10)
+  "fm_tree1", "fm_tree2", "fm_tree3", "fm_tree4", "fm_shrub1",
+  "fm_prop1", "fm_prop2", "fm_prop3",
+  "ud_deadtree1", "ud_deadtree2", "ud_deadtree3", "ud_brokentree",
+  "ud_grave1", "ud_grave2", "ud_grave3", "ud_skulls", "ud_bones",
+  "cl_mflower", "cl_eyeplant", "cl_jawsplant", "cl_manyeyes", "cl_pustules", "cl_rock", "cl_bones",
+  /* v4.1.5 — Kenney Particle Pack (CC0) — v4.1.8: 조명 마스크(pk_light_01)만 유지,
+   *  이펙트용 26종은 Unity 에셋스토어 유료 CFXR 텍스처로 전면 교체 (저품질 무료 이펙트 제거) */
+  "pk_light_01",
+  /* v4.1.7 — Unity Asset Store 유료 에셋 (유저 구매): Cartoon FX Remaster(JMO) + FireworksEffect2D
+   *  레벨업 불꽃놀이·보스 룬 마법진/오라·타격 임팩트 등 프리미엄 VFX 텍스처 */
+  "pfx_hit", "pfx_magic", "pfx_star", "pfx_runic", "pfx_aura",
+  "pfx_ring", "pfx_elec", "pfx_skull", "pfx_fw_b", "pfx_fw_y",
+  "pfx_heart", "pfx_spark_y",
+  /* v4.1.8 — 유료 CFXR 애니메이션급 파티클 텍스처: 타격 임팩트/레벨업 별/사망 연기/
+   *  포탈·수집 마법 별/카오스 잉걸불 화염 — Kenney 무료 이펙트 완전 대체 */
+  "cfxr_impact", "cfxr_star", "cfxr_mstar", "cfxr_flamme",
+  "cfxr_puff", /* v4.1.9 — 사망 연기 단일 패프 (구름 4장 시트 소형화, smoke 시트 대체) */
+  /* v4.9.0 — 유저 제공 VFX 팩(Hovl Studio Magic effects) 신규 채택:
+   *  rune_circle = 보스 등장 룬 마법진 / slash_arc = 회전베기 참격 궤적 오버레이 */
+  "rune_circle", "slash_arc",
+  /* v1.3.0 — VFX3_LIST(58종)/map 타일셋 6종은 preload에서 별도 setPath 로드 (vfx2/·map/ PNG) */
+  /* v4.1.8 — Unity 에셋스토어 유료 SPUM 캐릭터: Unity 프리팹을 정밀 파싱해 조합한
+   *  프리미엄 픽셀 NPC 14종 — 챕터 마을 주민/상점/직업교관 비주얼 전면 업그레이드 */
+  "spum_villager_m", "spum_villager_f", "spum_knight", "spum_elf", "spum_mage",
+  "spum_skel", "spum_devil", "spum_smith", "spum_miner", "spum_fisher",
+  "spum_forager", "spum_scout", "spum_mystic", "spum_butler",
+  /* vc178 — 집 꾸미기 가구 8종 (map_props.png에서 분리 — 인테리어 배치용) */
+  "furn_crate_big", "furn_crate_small", "furn_barrel", "furn_bucket",
+  "furn_bench", "furn_table", "furn_chair", "furn_pots",
+] as const;
+
+/** vc212 (#npc-body) — 자체 제작 월드 NPC 전신 텍스처 키.
+ *  `public/assets/npcbody/<key>.png` (96×96) 에서 로드한다.
+ *  전부 `tools/gen_npc_bodies.py` 가 절차 생성한 오리지널 에셋이다. */
+const NPC_BODY_LIST = [
+  "npcbody_merchant", "npcbody_knight", "npcbody_mage", "npcbody_elf",
+  "npcbody_villager_m", "npcbody_villager_f", "npcbody_smith", "npcbody_fisher",
+  "npcbody_miner", "npcbody_scout", "npcbody_mystic", "npcbody_devil",
+  "npcbody_priest", "npcbody_butler",
+] as const;
+
+/** `spum_*` 키 → 자체 전신 텍스처 키. 매핑에 없으면 기존 spum_* 을 그대로 쓴다. */
+const SPUM_TO_BODY: Record<string, string> = {
+  spum_villager_m: "npcbody_villager_m",
+  spum_villager_f: "npcbody_villager_f",
+  spum_knight: "npcbody_knight",
+  spum_elf: "npcbody_elf",
+  spum_mage: "npcbody_mage",
+  spum_skel: "npcbody_devil",
+  spum_devil: "npcbody_devil",
+  spum_smith: "npcbody_smith",
+  spum_miner: "npcbody_miner",
+  spum_fisher: "npcbody_fisher",
+  spum_forager: "npcbody_villager_m",
+  spum_scout: "npcbody_scout",
+  spum_mystic: "npcbody_mystic",
+  spum_butler: "npcbody_butler",
+};
+
+/* vc179 (지시 #11) — 사용자 제공 UNI VFX 팩에서 추출한 전투 이펙트 6종.
+ *  직접 그리지 않고 제공 에셋을 256px webp(총 58KB)로 경량 변환해 쓴다.
+ *  ASSET_LIST와 경로가 다르므로(assets/vfx/) 별도 목록으로 둔다. */
+/* v4.9.2 — pixelfx 시트 키. tools/import-pixelfx.mjs 로 추가한 것만 여기 적는다.
+ *  (파일이 없으면 로더가 404 를 내므로 목록과 실제 파일을 일치시켜야 한다) */
+/* vc232 (#20 "최적화") — 부팅 프리로드 목록을 **실제 쓰는 이펙트만**으로 축소.
+ *  [문제] 81종(52.1MB)을 부팅에 전부 받았다. 그중 36종은 PixelFxManager 의
+ *   EVENT_FX 에 등장조차 하지 않아 한 번도 재생되지 않는데 매 실행마다 31MB 를
+ *   내려받고 디코드했다. 모바일에서 첫 진입 지연·메모리 압박의 주 원인.
+ *  [해결] EVENT_FX 가 참조하는 45종(21.2MB)만 프리로드한다.
+ *   나머지는 필요 시 loadFxSheet 로 지연 로드할 수 있다(경로는 그대로 유효). */
+const PIXELFX_SHEETS = [
+  "arcane-orb", "big-explosion", "bleeding", "blink-in", "blunt-hit", "bullet-impact",
+  "claw-swipe", "coin-spin", "collect-burst", "crit-hit", "crystal-shard", "dissolve-burn",
+  "divine-shield", "fireball", "frozen", "gem-spin", "hammer-smash", "haste", "heal",
+  "healing-bloom", "hit-spark", "ice-spikes", "impact-frame", "implosion", "leaf-storm",
+  "level-up", "pixel-dissolve", "poisoned", "poof", "portal", "quest-complete", "rage",
+  "resurrection", "shadow-flames", "shatter-death", "shield-block", "smite", "soul-rise",
+  "spawn-portal", "spin-slash", "splash", "summon-rise", "sunburst", "sword-slash", "zap-hit",
+];
+
+const VFX_PACK_LIST = [
+  "fx_shockwave", "fx_impact", "fx_glow", "fx_burst", "fx_flare", "fx_smoke",
+  /* sertz.7z(GameVFX Buff Collection) 추가 추출분 — 원소/번개/육각 마법진/수중 */
+  "fx_electro", "fx_flarew", "fx_hex", "fx_glowblue", "fx_noise", "fx_caustic",
+  /* 3차 추출 — 감전/낙뢰/황금 광휘/오라/보라 파동/대형 플레어 */
+  "fx_electrichit", "fx_lightning", "fx_glowyellow", "fx_aura", "fx_purple", "fx_flarebig",
+  /* vc206 (#13 RE 반영) — 캐릭터 발밑 타원 그림자. Bloodkeeper(Construct 3)·FeatherPark(Godot)
+   *  모두 `Shadow` 전용 레이어를 캐릭터 바로 뒤에 둔다. SERTZ 에는 없어서 캐릭터가
+   *  지면에 붙어 보이지 않았다. */
+  "fx_ground_shadow",
+] as const;
+
+const AUDIO_LIST: string[] = [
+  /* v3.0.24 — BGM은 타이틀 1곡만 프리로드 (나머지 39트랙은 구역 진입 시 지연 로딩 —
+   *  풀버전 q4 재인코딩과 함께: 부트 디코드 시간 단축 + WebAudio PCM 수 GB 크래시 방지) */
+  ...BGM_PRELOAD_TRACKS,
+  "sfx_swing", "sfx_hit", "sfx_spin", "sfx_dash", "sfx_hurt",
+  "sfx_pickup", "sfx_quest", "sfx_levelup", "sfx_portal",
+  "sfx_roar", "sfx_die", "sfx_bossdie",
+  /* v4.1.7 — Unity Asset Store 유료 SFX (Fantasy UI SFX) 전용음 8종:
+   *  코인/물약/장착/강화는 타 음원 피치변주 대용 → 실제 정체성 음원으로 승격 */
+  "sfx_coin", "sfx_potion", "sfx_equip", "sfx_upgrade",
+  "sfx_click", "sfx_open", "sfx_close", "sfx_ach",
+  /* v3.0.24 — 직업별 스킬 전용 효과음 27종 (효과음연구소) */
+  ...SKILL_SFX_TRACKS,
+];
+
+/* 지형 전환 타일 세트/종류 (scripts/build_tile_transitions.py 생성) */
+const TX_SETS = ["gp", "dp", "cp", "si", "ap"] as const;
+const TX_KINDS = [
+  "edge_dn", "edge_up", "edge_lt", "edge_rt",
+  "bite_dn", "bite_up", "gvar1", "gvar2", "pvar",
+] as const;
+
+/* v1.4.1 (#스프라이트로딩) — 로드 실패 파일 자동 재시도:
+ *  Android WebView는 부팅 시 1천+ 로컬 에셋 요청 중 일부를 실패시킬 수 있고,
+ *  Phaser 로더는 실패 파일을 조용히 건너뛰므로 해당 스프라이트가 그 세션에서 영구 누락됐다.
+ *  실패 목록을 모아 (스프라이트시트 치수/오디오 타입 보존) create에서 최대 3회 재시도한다. */
+const FAILED_TRIES_MAX = 3;
+const SHEET_DIMS = new Map<string, { fw: number; fh: number }>();
+for (const [k, , h] of X2_SPELLS) SHEET_DIMS.set(k, { fw: h, fh: h });
+for (const [k, w, h] of [
+  ["vfx2_bolt", 48, 32], ["vfx2_charged", 63, 48],
+  ["vfx2_hit1", 96, 96], ["vfx2_hit3", 96, 96], ["vfx2_hit5", 96, 96],
+  ["vfx2_pulse", 64, 32], ["vfx2_wspark", 64, 32],
+  ["vfx2_elec", 128, 128], ["vfx2_tri", 128, 128], ["vfx2_cfx1", 128, 128],
+  ["sv_campfire", 32, 32], ["fx_tornado", 64, 64], ["chest_anim", 64, 64],
+  ["map_chest_f", 64, 64], // v1.4.4 — 보물상자 부활(리포트 ②) — 유적 삭제 때 함께 빠졌던 시트 치수 복구
+] as [string, number, number][]) SHEET_DIMS.set(k, { fw: w, fh: h });
+/* vc180 (지시: 제공 에셋 활용) — Sonniss GDC 2026 번들에서 판타지 RPG에 쓸 만한
+ *  10종만 선별·경량화(모노 44.1k, 앞 2.2초, ogg q4 → 총 187KB)했다.
+ *  자동차/모터사이클/공장 소음이 대부분이라 게임 맥락에 맞는 것만 골랐다.
+ *  AUDIO_LIST와 경로가 달라(assets/sfx2/) 별도 목록으로 둔다. */
+export const SFX2_LIST = [
+  "mob_beast_growl", "mob_beast_gurgle", "mob_beast_pain", "mob_insect_attack",
+  "metal_hit_low", "metal_screech", "metal_scrape",
+  "amb_rain_city", "amb_wind_strong", "pc_effort",
+] as const;
+
+const AUDIO_KEYS = new Set<string>([...AUDIO_LIST, ...SFX3_LIST, ...SFX2_LIST]);
+
+export class BootScene extends Phaser.Scene {
+  constructor() {
+    super("boot");
+    /* v1.4.3 — 엔진 프레임 가드 (파괴 프레임 재굽 크래시 무해화 — texGuard 참조) */
+    installEngineFrameGuard();
+  }
+
+  /* v1.4.1 — 로드 실패 파일 수집 (재시도 큐) */
+  private failedLoads = new Map<string, { key: string; url: string; tries: number }>();
+
+  /* v1.4.1 — loaderror 수집기: 실패 파일의 key/완성 URL을 보존해 create에서 재시도.
+   *  file.url은 File 생성 시점에 loader.path가 이미 합성된 완성 상대경로("assets/xxx.webp")라
+   *  재시도 시 setPath("") 후 그대로 재사용하면 된다. */
+  private readonly onLoadError = (file: { key?: string; url?: string }) => {
+    const key = file?.key ?? "";
+    if (!key) return;
+    const prev = this.failedLoads.get(key);
+    const tries = (prev?.tries ?? 0) + 1;
+    if (tries > FAILED_TRIES_MAX) {
+      console.warn("[SERTZ] 에셋 로드 실패 — 재시도 한도 초과, 건너뜀:", key);
+      return;
+    }
+    this.failedLoads.set(key, { key, url: String(file?.url ?? ""), tries });
+    console.warn(`[SERTZ] 에셋 로드 실패 — 자동 재시도 예약 (${tries}/${FAILED_TRIES_MAX}):`, key);
+  };
+
+  /** v1.4.1 — 수집된 실패 파일 재시도 (최대 2라운드, 파일당 총 3회 한도) */
+  private async retryFailedLoads() {
+    for (let round = 0; round < 2 && this.failedLoads.size > 0; round++) {
+      const batch = Array.from(this.failedLoads.values());
+      this.failedLoads.clear();
+      this.load.setPath("");
+      for (const f of batch) {
+        try {
+          const dim = SHEET_DIMS.get(f.key);
+          if (dim) this.load.spritesheet(f.key, f.url, { frameWidth: dim.fw, frameHeight: dim.fh });
+          else if (AUDIO_KEYS.has(f.key)) this.load.audio(f.key, f.url);
+          else this.load.image(f.key, f.url);
+        } catch {
+          /* 큐잉 실패는 다음 라운드에서 재평가 */
+        }
+      }
+      if (this.load.list.size > 0) {
+        await new Promise<void>((resolve) => {
+          this.load.once("complete", () => resolve());
+          this.load.start();
+        });
+      }
+    }
+    if (this.failedLoads.size > 0) {
+      console.warn("[SERTZ] 재시도 후에도 로드 실패:", Array.from(this.failedLoads.keys()).join(", "));
+    }
+  }
+
+  /* v1.0.20 — 부팅 로딩 화면 (유저 지시: "검은화면 뜨는 버그 없애").
+   *  기존엔 preload 동안 화면이 순수 검정이라 — 특히 APK 콜드스타트에서 수 초간
+   *  "검은 화면 = 고장"으로 보였다. 게임형 로딩 화면(로고+진행바+팁)을 즉시 렌더해
+   *  부팅 구간이 결코 검게 보이지 않게 한다. Scale.RESIZE 대응 리레이아웃 포함. */
+  private bootUi?: {
+    rebuild: () => void;
+    destroy: () => void;
+  };
+
+  private buildLoadingUi() {
+    const gold = 0xe8c064;
+    const wood = 0x7a5a2e;
+    const container = this.add.container(0, 0).setDepth(10).setScrollFactor(0);
+
+    const rebuild = () => {
+      container.removeAll(true);
+      const W = this.cameras.main.width;
+      const H = this.cameras.main.height;
+      /* 배경 — 밤하늘 네이비 (게임 배경색과 동일 계열) */
+      container.add(this.add.rectangle(0, 0, W, H, 0x0d1424).setOrigin(0));
+      /* 로고 */
+      container.add(
+        this.add
+          .text(W / 2, H * 0.34, "SERTZ", {
+            fontFamily: "Galmuri14, Galmuri11, sans-serif",
+            fontSize: `${Math.max(34, Math.round(W * 0.07))}px`,
+            color: "#ffd98a",
+            fontStyle: "bold",
+          })
+          .setOrigin(0.5)
+          .setStroke("#3a2508", Math.max(6, Math.round(W * 0.012)))
+          .setShadow(0, 5, "#000000", 0, true, true),
+      );
+      container.add(
+        this.add
+          .text(W / 2, H * 0.34 + Math.max(30, Math.round(W * 0.055)), "이그드라실 : 9개의 바다", {
+            fontFamily: "Galmuri11, sans-serif",
+            fontSize: `${Math.max(12, Math.round(W * 0.02))}px`,
+            color: "#cbb88a",
+          })
+          .setOrigin(0.5),
+      );
+      /* 진행바 프레임 (우드 프레임 + 금 채움) — 채움은 progress 핸들러가 갱신 */
+      const barW = Math.min(340, W * 0.6);
+      const barH = 18;
+      const barY = H * 0.58;
+      container.add(this.add.rectangle(W / 2, barY, barW + 8, barH + 8, wood).setStrokeStyle(2, 0x241a0d));
+      const fill = this.add.rectangle(W / 2 - barW / 2, barY, 1, barH, gold).setOrigin(0, 0.5); // v1.1.0 (#14) — originY 0.5: 채움 바가 프레임 세로 중앙에 정렬 (기존 9px 하강/돌출 버그)
+      container.add(fill);
+      container.add(
+        this.add
+          .text(W / 2, barY + barH + 16, "모험의 세계를 불러오는 중…", {
+            fontFamily: "Galmuri9, sans-serif",
+            fontSize: "11px",
+            color: "#8a97b8",
+          })
+          .setOrigin(0.5),
+      );
+      this.load.on("progress", (p: number) => {
+        if (!fill.active) return; // resize로 파괴된 이전 채움 — 무시
+        fill.width = Math.max(2, barW * p);
+      });
+      /* v1.4.1 — loaderror 수집은 preload()에서 1회 등록으로 이관 (재시도 체계 참조).
+       *  rebuild가 resize마다 재실행돼도 핸들러가 중복 등록되지 않는다. */
+    };
+    rebuild();
+
+    /* 로딩 팁 — 1.6초마다 순환.
+     * v1.1.3 (#개편) — 5개뿐이라 매번 같은 팁만 보였고, 게임의 절반 이상 기능
+     * (보스/탑/시련/제작/심연상점/환생/파크/무릉/거래/유니온/별자리)은 로딩 화면에서
+     * 한 번도 언급되지 않았다. 24개로 늘려 첫 화면에서 콘텐츠 존재를 알린다. */
+    const TIPS = [
+      "마을의 룬 정령 이그니와 대화해 첫 퀘스트를 시작하자",
+      "Lv 10이 되면 전직관 카이엔에게 1차 전직 시련을 의뢰하자",
+      "물약은 D/F 키 — 설정에서 키 배치를 바꿀 수 있다",
+      "보스전이 어두우면 설정에서 셰이더 강도를 조절하자",
+      "유니온에 캐릭터를 배치하면 계정 전체에 힘이 실린다",
+      "심연의 탑은 층마다 몬스터가 2배씩 강해진다 — 깊이 갈수록 보상도 커진다",
+      "매일 바뀌는 시련에 도전하면 그날만 얻는 보상을 챙길 수 있다",
+      "제작대에서 재료를 모아 장비를 직접 만들 수 있다",
+      "심연 상점은 보스 재료로만 열리는 특수 상점이다",
+      "환생하면 레벨은 초기화되지만 영구 능력치가 남는다",
+      "몬스터 파크는 하루 한 번 입장하는 웨이브 던전이다",
+      "무릉도장에서 실시간 DPS를 측정해 빌드를 점검할 수 있다",
+      "거래소에서는 다른 모험가와 1:1로 물건을 사고팔 수 있다",
+      "별자리에 포인트를 투자하면 계정 전체가 강해진다",
+      "장비에 스타포스를 올리면 실패 확률과 하락이 있다 — 공시된 확률을 확인하자",
+      "물약은 자동 사용으로 설정할 수 있다 — 위기에서 알아서 마신다",
+      "자동사냥(B)은 필드에서만 — 보스전은 직접 조작해야 한다",
+      "적의 공격 예고를 보고 움직이면 피해를 크게 줄일 수 있다",
+      "정예 몬스터는 이름이 붉게 표시된다 — 경험치와 드롭이 다르다",
+      "퀘스트를 완료하면 다음 지역 포탈이 열린다",
+      "스킬 5차 궁극기는 200레벨에 열린다",
+      "계정 설정에서 이동 키를 방향키↔WASD로 바꿀 수 있다",
+      "보스마다 고유 패턴이 있다 — 세 번 싸우면 눈에 익는다",
+      "물약·강화 주문서는 상점에서, 희귀 재료는 필드에서 얻는다",
+    ];
+    let tipIdx = Math.floor(Math.random() * TIPS.length);
+    const tipText = this.add
+      .text(this.cameras.main.width / 2, this.cameras.main.height * 0.72, "", {
+        fontFamily: "Galmuri9, sans-serif",
+        fontSize: "11px",
+        color: "#6f7d9c",
+        wordWrap: { width: this.cameras.main.width * 0.8 },
+        align: "center",
+      })
+      .setOrigin(0.5)
+      .setDepth(11)
+      .setScrollFactor(0);
+    const showTip = () => {
+      tipText.setText(`TIP — ${TIPS[tipIdx % TIPS.length]}`);
+      tipIdx++;
+    };
+    showTip();
+    const tipTimer = this.time.addEvent({ delay: 1600, loop: true, callback: showTip });
+
+    const onResize = () => {
+      rebuild();
+      tipText.setPosition(this.cameras.main.width / 2, this.cameras.main.height * 0.72);
+      tipText.setWordWrapWidth(this.cameras.main.width * 0.8);
+    };
+    this.scale.on("resize", onResize);
+
+    this.bootUi = {
+      rebuild,
+      destroy: () => {
+        this.scale.off("resize", onResize);
+        tipTimer.remove();
+        tipText.destroy();
+        container.destroy();
+        this.load.off("progress");
+      },
+    };
+  }
+
+  preload() {
+    /* v1.4.2 — 텍스처 무결성 감시 수집 훅 (filecomplete/loaderror → 전역 레지스트리).
+     *  수집된 레지스트리는 create에서 전수 감사 + 월드 상주 감시가 재사용한다. */
+    hookLoaderForGuard(this.load, this.textures);
+    /* v1.4.1 — 실패 수집기를 로드 시작 전 1회 등록 (rebuild 중복 등록 제거) */
+    this.load.off("loaderror", this.onLoadError as never);
+    this.load.on("loaderror", this.onLoadError as never);
+    /* v1.0.20 — 로딩 UI를 에셋 로드 시작 "직전"에 띄운다 (검은 화면 구간 0) */
+    this.buildLoadingUi();
+    /* vc224 — 로더 병렬도 제한.
+     *  헤드리스 검증에서 1,678개 중 32개(1.9%)에서 무한 정체가 재현됐다(실패 0건, pending 1646).
+     *  pending 파일 state 가 전부 LOADING 으로 남아 있어 동시 요청이 브라우저 커넥션 한도에
+     *  걸린 것으로 보인다. Phaser 기본값 4 → 2 로 낮춰 정체를 회피한다.
+     *  로드 총량이 같으므로 완료 시간은 거의 동일하고, 대신 멈추지 않는다. */
+    this.load.maxParallelDownloads = 2;
+    this.load.setPath("assets");
+    /* vc206 (지시 #11) — webp 우선 로드 후, PNG 원본이 있는 타일은 PNG 로 덮어 로드한다.
+     *  Phaser 는 같은 키를 두 번 큐잉하면 나중 것이 이기므로 PNG 가 최종 텍스처가 된다.
+     *  (webp 5종이 PNG 대비 색이 40~93% 뭉개져 있어 "종이 쪼가리"로 보였다) */
+    for (const key of ASSET_LIST) {
+      if (!TILE_PNG_KEYS.includes(key)) this.load.image(key, `${key}.webp`);
+    }
+    for (const key of new Set(Object.values(GROUND_TILE_MAP))) {
+      if (key.startsWith("ground_")) this.load.image(key, `ground/${key}.png`);
+    }
+    /* vc235 (#최적화) — aura 는 `setPath("assets")` 의 영향을 받으면 안 된다.
+     *  manifest 의 `file` 은 `/assets/aura/gvb_*.png` 처럼 루트부터의 전체 경로다.
+     *  setPath 가 걸린 상태로 넘기면 Phaser 가 `assets/` 를 앞에 붙여
+     *  `/assets/assets/aura/...` 를 요청해 23종 전부 404 가 났다.
+     *  (부팅마다 aura 텍스처 없음 → 재시도 3회 → 부팅 지연)
+     *  로드 직전에 경로를 비우고, 끝나면 원래 경로로 되돌린다. */
+    this.load.setPath("");
+    for (const { key, file } of AURA_TEXTURE_LOADS) this.load.image(key, file);
+    this.load.setPath("assets");
+    /* vc226 (최적화) — FA 프레임을 **아틀라스 1장**으로 로드한다.
+     *
+     *  종전: 268개 개별 `load.image` = HTTP 요청 268개(부팅 요청의 26%).
+     *  이제: `fa/p1.png`(87KB) + `fa/p1.json` 2개 요청.
+     *
+     *  `fa/p1.json` 은 프레임 이름을 **원래 키 그대로**(`fa_p1_idle__0`) 담고 있다.
+     *  그래서 textures.ts 는 `{ key: "fa_p1", frame: "fa_p1_idle__0" }` 처럼 참조한다.
+     *
+     *  p2/p3 은 로드하지 않는다 — 참조하는 코드가 0곳이라 180프레임이 버려지고 있었다.
+     *  아트는 `public/assets/fa/p2·p3` 에 남아 있고, 캐릭터 선택에 붙일 때 로드하면 된다. */
+    this.load.atlas("fa_p1", "fa/p1.png", "fa/p1.json");
+    for (const key of TILE_PNG_KEYS) this.load.image(key, `${key}.png`);
+    /* vc179 (지시 #11) — 사용자 제공 UNI VFX 팩에서 추출한 이펙트 6종.
+     *  ASSET_LIST는 `assets/<key>.webp` 평면 경로를 쓰므로 하위 폴더(vfx/)는 별도 로드. */
+    for (const k of VFX_PACK_LIST) this.load.image(k, `vfx/${k}.webp`);
+    /* vc212 (#npc-body) — 대사창 얼굴과 같은 절차 생성 계열의 **월드 NPC 전신**.
+     *  종전 `spum_*`(96×96, Unity 에셋스토어 유료)를 자체 제작본으로 대체한다.
+     *  규격이 96×96 으로 동일해 WorldScene 의 `setScale(0.62)` 를 그대로 쓴다.
+     *  로드 실패 시 해당 NPC 는 기존 spum_* 로 폴백한다(WorldScene 배선 참조). */
+    for (const k of NPC_BODY_LIST) this.load.image(k, `npcbody/${k}.png`);
+    /* v1.4.32 (유저 지시 #7 "메이플 5차&6차 보면 2d로도 엄청난 퀄리티의 스킬들을
+     * 뽑아내잖아 그것도 못함??!") — Hovl Studio Magic effects 팩의 고해상도
+     * 이펙트 텍스처 8종을 스킬 연출용으로 추가 로드한다. 흰색 마스크라
+     * setTint 로 원소색을 입혀 쓴다. */
+    for (const k of FX2_LIST) this.load.image(k, `fx2/${k}.webp`);
+    /* v1.4.31 (#4 보스 개편) — 유저 제공 9보스 아틀라스 (보스당 1장 · 부팅 직접 로드).
+     *  프레임 크기는 슬라이서 실측값 — BOSS_ATLAS 설정과 정확히 일치 (textures.ts)
+     *  vc235 — 부팅 로드 제거를 시도했다가 되돌렸다: Boss.ts:170 의 `loadBossFrames`
+     *  는 `assets/<tex>_idle0.webp` 같은 **개별 프레임**을 받는 구형 경로라
+     *  아틀라스 보스에는 그 파일이 없다. 부팅에서 빼면 아틀라스 보스가 텍스처
+     *  없이 스폰돼 애니 등록이 조기 return 하고 그려지지 않는다. */
+    for (const { key, file, fw, fh } of Object.values(BOSS_ATLAS)) {
+      this.load.spritesheet(key, file, { frameWidth: fw, frameHeight: fh });
+    }
+    /* vc235 — 장식 오브젝트 (왕좌·책장·항아리·횃불·천막·가구·나무).
+     *  `_assets_in` 의 던전/숲/마을 타일셋에서 추출한 것을
+     *  `tools/collect_objects.py` 가 굽고 `decorObjects.ts` 가 목록을 갖는다.
+     *  종전엔 tree/rock/pine 같은 단순 텍스처만 깔려서 맵이 "같은 바닥 반복"으로
+     *  보였다. 총 34개·37KB 라 부팅 부담은 사실상 없다. */
+    for (const [setName, list] of Object.entries(DECOR_SETS)) {
+      for (const o of list) this.load.image(o.key, `objects/${setName}/${o.key}.png`);
+    }
+    /* v1.1.0 (#1/#19/#21/#22) — 외형 시스템: 여성(chf)/피부(chm) 변형 11종 + SPUM식 코스튬 완전교체(cost_*) 10종 × 28프레임
+     *  + 어태치 장식 5종 (scripts/gen_char_system.py 산출). 구 outfit_* 재색상 오버레이는 폐기(미로드)
+     *  v1.2.1 (#4 최적화 x3) — 부팅 분할 로드: 기본 성별/피부 시트(11종·308프레임)만 즉시 로드.
+     *  코스튬/직업/GM 시트 37종(≈1036프레임)은 TitleScene 백그라운드 로드로 이관 —
+     *  모바일 첫 부팅 로드 요청이 절반 이하로 줄고 로딩바가 훨씬 빨리 끝난다. */
+    const heroFrames = ASSET_LIST.filter((k) => k.startsWith("hero_")).map((k) => k.slice(5));
+    for (const p of CORE_BODY_PREFIXES) {
+      for (const f of heroFrames) this.load.image(`${p}_${f}`, `${p}_${f}.webp`);
+    }
+    /* v1.2.0 (#1) — 포니테일 4종 로드 제거(아이템 폐지) · 무지개 오라 아이콘 + 어태치 장식은 유지 */
+    for (const t of ["acc_crown", "acc_ribbon", "acc_halo", "acc_wings_devil", "acc_wings_fairy", "acc_cape_crimson", "acc_cape_royal", "i_cos_rainbow"]) {
+      this.load.image(t, `${t}.webp`);
+    }
+    /* v1.0.7 — 프리렌더 3D VFX 추가 (Hovl Studio Magic effects · UNI VFX — 연구용 원본 재확보분,
+     *  유니티 3D 파이프라인 프리렌더 텍스처 → 2D 스프라이트. 보스 격파/각성 의식 등 희소 고급스 순간 전용) */
+    this.load.image("hv_slash", "hv_slash.webp");
+    this.load.image("hv_flash", "hv_flash.webp");
+    this.load.image("uni_boom", "uni_boom.webp");
+    /* v1.0.10 — GameStudio FX: Vefects(Unity 3D VFX) 프리렌더 25종 — 4차/5차 스킬 강화 +
+     *  전투 상시 연출 (펜타클/원소 플레어/링/엠블럼/화이트 제네릭). scripts/gen_vfx_v1010.py 산출 */
+    for (const t of [
+      "vf_pentacle", "vf_penta_fire", "vf_penta_elec", "vf_penta_dark", "vf_penta_ice",
+      "vf_flare_fire", "vf_flare_elec", "vf_flare_dark", "vf_flare_ice", "vf_flare_nature",
+      "vf_flare_void", "vf_flare_water", "vf_flare_earth",
+      "vf_ring_void", "vf_ring_fire", "vf_emb_fire", "vf_emb_void", "vf_emb_nature", "vf_emb_sound",
+      "vf_slash", "vf_impact", "vf_ring", "vf_lightning", "vf_star", "vf_arrow",
+    ]) this.load.image(t, `${t}.webp`);
+    /* v1.0.11 — Gameworks Unity 팩 프리렌더 (Hovl Studio Magic effects · Matthew Guz Slash ·
+     *  유저 업로드 file3). 기존 스킬 N차 강화 + 튜토리얼 축하 연출.
+     *  scripts/gen_gameworks_v1011.py 산출 (512 캡 q82, 총 512K)
+     *  v1.0.13 — gw_petal(벚꽃잎) 로드 제거 — 유저 지시 "벚꽃 그냥 없애" (연출 전면 철수) */
+    for (const t of [
+      "gw_magic", "gw_rune", "gw_tech", "gw_electro", "gw_flare", "gw_flash", "gw_glow",
+      "gw_arc", "gw_crack", "gw_trail", "gw_arrow", "gw_proj", "gw_crystal", "gw_crater",
+      "gw_slash_a", "gw_slash_b", "gw_slash_c", "gw_dash", "gw_shock", "gw_boom",
+      "gw_spark", "gw_crit", "gw_fire", "gw_dot",
+      /* v1.0.12 — Toon Shaders Pro 팩(유저 Drive 업로드) 2차 투입: 눈보라 날씨 + 크리티컬 스플랫
+       * v1.0.13 — 벚꽃 날씨(wx_petal) 제거 — 유저 지시 "벚꽃 그냥 없애" (메모리·용량 절감) */
+      "wx_snowflake", "wx_splat", "wx_crater", "wx_crack", "wx_smoke", "wx_spark5",
+    ]) this.load.image(t, `${t}.webp`);
+    /* v3.0.2 — 외부 신규 에셋 (전부 CC0, CREDITS.md 참조)
+     *  50 Monsters Pack (isaiah658): 신규 몬스터 9종 × idle2/run4/atk1 프레임
+     *  Pixelart Spells (Anokolisa?): 마법 투사체 6프레임 시트
+     *  4-Color Dungeon Bricks (LOSCH): 던전 벽 벽돌 타일
+     *  Bow 20x20 (CoolNav.js): 궁수 활 */
+    for (const k of X2_MONSTERS) {
+      for (const f of ["idle0", "idle1", "run0", "run1", "run2", "run3", "atk0"]) {
+        this.load.image(`${k}_${f}`, `${k}_${f}.webp`);
+      }
+    }
+    /* v3.0.3 — 0x72 DungeonTileset II (itch.io, CC0): 신규 몬스터 7종 idle4/run4/atk1
+     *  + 무기 스프라이트 (활/지팡이/단검/표창) + GM NPC */
+    for (const k of X3_MONSTERS) {
+      for (const f of ["idle0", "idle1", "idle2", "idle3", "run0", "run1", "run2", "run3", "atk0"]) {
+        this.load.image(`${k}_${f}`, `${k}_${f}.webp`);
+      }
+    }
+    /* v1.4.41 (#6) — x3_sword 누락 수리. syncWeaponSprite 가 5계열 1:1로 무기를 고르는데
+     *  (전사=검 / 궁수=활 / 마법사=지팡이 / 도적=표창 / 해적=총) 검만 이 목록에 없어
+     *  전사 계열만 무기가 렌더되지 않았다(Phaser 가 없는 텍스처에 __MISSING 를 넣는다). */
+    for (const k of ["x3_sword", "x3_bow", "x3_staff", "x3_shuriken", "x3_gun", "npc_gm"]) {
+      this.load.image(k, `${k}.webp`);
+    }
+    /* v1.4.41 — Unity VFX 팩 2종 이관분 (gvb_ = GameVFX Buff, gvu_ = UNI VFX).
+     *  프리팹은 못 쓰지만 텍스처는 PNG/TGA 1024² 이고 팩의 Additive.shader = Phaser ADD 블렌드.
+     *  알파 없는 가산광 마스크는 휘도→알파로 변환해 두었다(tools/extract_vfx_alpha.py).
+     *  로드 키 목록은 tools/import_vfx_packs.py 의 IMPORT 표와 1:1 이어야 한다. */
+    for (const k of [
+      "gvb_shield_hex", "gvb_ring_soft", "gvb_electric_splat", "gvb_lightning_blue",
+      "gvb_buff_air", "gvb_grad_soft", "gvb_trail_stylized", "gvb_twinkle",
+      "gvb_glow_white", "gvb_star4", "gvb_star_green", "gvb_twink_01",
+      "gvb_shard", "gvb_lensflare", "gvb_glow_blurry", "gvb_smoke_pink", "gvb_glow_blue",
+      "gvu_exp_core", "gvu_circle_aggr", "gvu_shockwave_fiery", "gvu_trail_wave",
+      "gvu_energybolts", "gvu_linelong", "gvu_energyweb", "gvu_energynoise",
+      "gvu_mask_ommi", "gvu_mask_razor", "gvu_trail_ghost", "gvu_streaks",
+      "gvu_specks", "gvu_flare_xo", "gvu_glow", "gvu_spark",
+    ]) {
+      this.load.image(k, `${k}.webp`);
+    }
+    for (const [k, w, h] of X2_SPELLS) this.load.spritesheet(k, `${k}.webp`, { frameWidth: h, frameHeight: h });
+    for (const k of ["x2_arrow", "x2_arrow_green", "x2_arrow_sky", "x2_bricks", "x2_bow"]) this.load.image(k, `${k}.webp`); // v3.0.16 — 데드아이 초록 화살 · v3.0.20 — 스카이로드 구름색 화살
+    // 마을 모닥불 (Serene Village 32x32 4프레임 — v1.5 이관)
+    this.load.spritesheet("sv_campfire", "sv_campfire.webp", { frameWidth: 32, frameHeight: 32 });
+    /* v3.0.8 디자인 개편 — Warped Shooting Fx / Cartoon FX Remaster 신규 VFX 시트 */
+    const VFX2: [string, number, number][] = [
+      ["vfx2_bolt", 48, 32], ["vfx2_charged", 63, 48],
+      ["vfx2_hit1", 96, 96], ["vfx2_hit3", 96, 96], ["vfx2_hit5", 96, 96],
+      ["vfx2_pulse", 64, 32], ["vfx2_wspark", 64, 32],
+      ["vfx2_elec", 128, 128], ["vfx2_tri", 128, 128], ["vfx2_cfx1", 128, 128],
+    ];
+    for (const [k, w, h] of VFX2) this.load.spritesheet(k, `${k}.webp`, { frameWidth: w, frameHeight: h });
+    for (const k of ["vfx2_boom", "vfx2_blood"]) this.load.image(k, `${k}.webp`);
+    /* v3.0.11 — 토네이도 전용 스프라이트 (gen_tornado_fx.py — 스카이로드 폭풍 소용돌이/천공의 폭풍) */
+    this.load.spritesheet("fx_tornado", "fx_tornado.webp", { frameWidth: 64, frameHeight: 64 });
+    /* vc213 (#2 유령 애니메이션 복원) — 심연 유령(wraith) 전용 10프레임 시트.
+     *  기존 wraith_* 는 정적 셀 1장을 스쿼시 사이클로 복제한 것이라 run 4프레임 중
+     *  고유 프레임이 3개뿐이었고("제자리 껑충"), 사용자는 이를 "4프레임이 한 장에
+     *  다 들어간 아틀라스"로 인식했다. 이 시트는 OpenGameArt ghost_balmer(25x35,
+     *  10프레임 전부 고유 · 꼬리 물결 실제 모션)를 무손실 PNG로 재조립한 것이다. */
+    this.load.spritesheet("wraith_spirit", "anim/wraith_spirit.png", { frameWidth: 25, frameHeight: 35 });
+    /* v4.7.0 — Cainos 상자 개봉 애니 (가방 개봉/BM 구매/광고 상자 공용 연출) */
+    this.load.spritesheet("chest_anim", "chest_anim.webp", { frameWidth: 64, frameHeight: 64 });
+    // 지형 전환 타일 5세트 x 9종 (build_tile_transitions.py — 타일맵 경계 부자연 개선)
+    for (const s of TX_SETS) for (const k of TX_KINDS) this.load.image(`tx_${s}_${k}`, `tx_${s}_${k}.webp`);
+    this.load.setPath("assets/audio");
+    for (const key of AUDIO_LIST) this.load.audio(key, `${key}.ogg`);
+    /* vc213 (#3·#5·#6 타일맵) — Kenney Tiny Dungeon/Tiny Town (CC0, 16px · 12x11 = 192x176)
+     *  tilemap_packed.png 는 **간격 없는** 팩 시트다(192 = 12*16, 176 = 11*16 실측).
+     *  1px 간격이 있는 원본은 tilemap.png(203x186)이며 우리는 packed 를 쓴다 —
+     *  margin/spacing 을 주면 11x10 으로 잘려 마지막 행/열 타일이 사라진다. */
+    this.load.setPath("assets/tiles");
+    this.load.spritesheet("kenney_tinydungeon", "kenney_tinydungeon.png", {
+      frameWidth: 16,
+      frameHeight: 16,
+    });
+    this.load.spritesheet("kenney_tinytown", "kenney_tinytown.png", {
+      frameWidth: 16,
+      frameHeight: 16,
+    });
+    this.load.setPath("assets");
+    /* v1.3.0 (#에셋통합) — Drive 팩 VFX 사운드 48종 + 텍스처 58종 (scripts/prep_drive_assets.py) */
+    this.load.setPath("assets/vfx2");
+    for (const key of VFX3_LIST) this.load.image(key, `${key}.png`);
+    this.load.setPath("assets/audio/sfx");
+    for (const key of SFX3_LIST) this.load.audio(key, `${key}.ogg`);
+    /* vc180 — Sonniss GDC 2026에서 선별한 10종 (assets/sfx2/) */
+    this.load.setPath("assets/sfx2");
+    for (const key of SFX2_LIST) this.load.audio(key, `${key}.ogg`);
+    /* v1.4.3 (작업1 — 유적 삭제) — Cainos 유적 전용 텍스처 4종(map_torch_f/
+     *  map_ground/map_props) 로드 제거 유지.
+     *  v1.4.4 — 보물상자(map_chest_f·64px 7프레임 시트)만 재도입: 유적 철거 후에도
+     *  하루 1회 보상 상자(리포트 ② — "보물 상자만 남겨")가 지상에 남는다. */
+    this.load.setPath("assets/map");
+    this.load.spritesheet("map_chest_f", "map_chest.png", { frameWidth: 64, frameHeight: 64 });
+    /* v1.4.11 — Google Drive 신규 팩 2차 통합 (scripts/convert_drive_pack_v1411.py — 54종 변환)
+     *  Hovl Studio 마법 이펙트 29종(hv2_*) · Matthew Guz 참격 2차 17종(mg_*) · Toon 텍스처 5종(tn_*)
+     *  + 잠자던 기존 에셋 활성화: 파티클킷 27종(pk_*) · 횃불(cv_torch) · 사망연기(cfxr_smoke) · 에메랄드(item_emerald)
+     *  + 벚꽃 팩(cp_petal 16프레임 시트 · cp_bg 언덕 배경) — 타이틀/사쿠라 코스튬 전용 */
+    this.load.setPath("assets");
+    const V1411 = [
+      "hv2_magiccircle", "hv2_magiccircle2", "hv2_techcircle", "hv2_techcircle2", "hv2_electro",
+      "hv2_crater", "hv2_crack", "hv2_crystal", "hv2_flash1", "hv2_flash2", "hv2_flash3",
+      "hv2_glow", "hv2_projectile", "hv2_smoke", "hv2_smoke26", "hv2_star", "hv2_snow",
+      "hv2_splat", "hv2_stone", "hv2_heart", "hv2_circle", "hv2_circle2", "hv2_flare",
+      "hv2_flash0", "hv2_trail", "hv2_arrow", "hv2_gradient", "hv2_point", "hv2_mask",
+      "mg_slash0", "mg_slash1", "mg_slash2", "mg_slash3", "mg_slash4", "mg_slash5",
+      "mg_shock0", "mg_explode", "mg_crit", "mg_spark", "mg_fire", "mg_light", "mg_point",
+      "mg_particles", "mg_particles2", "mg_light2", "mg_smoke",
+      "tn_dirt0", "tn_dirt1", "tn_floor", "tn_rock", "tn_sand", "tn_concrete",
+      "pk_circle_02", "pk_circle_04", "pk_dirt_01", "pk_dirt_02", "pk_fire_01", "pk_fire_02",
+      "pk_flame_02", "pk_flame_04", "pk_light_01", "pk_light_02", "pk_light_03",
+      "pk_magic_01", "pk_magic_02", "pk_magic_03", "pk_magic_05", "pk_muzzle_02", "pk_muzzle_04",
+      "pk_smoke_01", "pk_smoke_04", "pk_smoke_06", "pk_smoke_08", "pk_spark_02", "pk_spark_04", "pk_spark_06",
+      "pk_star_01", "pk_star_02", "pk_star_03",
+      "cv_torch", "cfxr_smoke", "item_emerald",
+    ];
+    for (const k of V1411) this.load.image(k, `${k}.webp`);
+    this.load.spritesheet("cp_petal", "cp_petal.webp", { frameWidth: 176, frameHeight: 266 });
+    this.load.image("cp_bg", "cp_bg.webp");
+    /* vc142 (#9/#12) — UNI VFX · Hovl Studio · Cartoon FX Remaster · GameVFX 3차 통합 34종
+     *  (scripts/conv_vc142_assets.py — 유저 제공 원본 크롭). 보스 고유 패턴 FX + 3D 오버레이 공용 */
+    const VX142_SHEETS: [string, number, number][] = [
+      ["vx_smoke", 128, 128], ["vx_expcore", 256, 256], ["vx_fire", 128, 128],
+      ["vx_elec", 128, 128], ["vx_bolt", 128, 128], ["vx_smokecloud", 192, 192],
+      ["vx_petal", 192, 192], ["vx_fly", 96, 96], ["vx_debris", 128, 128],
+    ];
+    for (const [k, w, h] of VX142_SHEETS) this.load.spritesheet(k, `${k}.webp`, { frameWidth: w, frameHeight: h });
+    for (const k of [
+      "vx_slash", "vx_magiccircle", "vx_techcircle", "vx_crystal", "vx_snow", "vx_star",
+      "vx_splat", "vx_crack", "vx_flash", "vx_flare", "vx_glowh", "vx_ring", "vx_hex",
+      "vx_twinkle", "vx_glowball", "vx_lensflare", "vx_aura", "vx_firecircle", "vx_puddle",
+      "vx_spikes", "vx_shockwave", "vx_circlehazy", "vx_flarexo", "vx_trailghost",
+    ]) this.load.image(k, `${k}.webp`);
+    /* vc149 (#14) — 유저 제공 GameVFX 3D 팩 4차 통합 81종 (scripts/vc149_gvfx_convert.py →
+     *  public/assets/vfx3/). UNI VFX·Cartoon FX Remaster·GameVFX Buff Collection 원본 PNG 추출.
+     *  gv_rune_* 2종은 마법 계열 전용 룬 — 타 계열 지면 연출은 gv_ 계열별 대체 FX 사용 */
+    this.load.setPath("assets/vfx3");
+    for (const k of GVFX3_LIST) this.load.image(k, `${k}.webp`);
+    /* v4.9.2 — pixelfx(픽셀 VFX, MIT) 스프라이트시트.
+     *  tools/import-pixelfx.mjs 가 public/assets/fx 에 넣은 시트만 로드한다.
+     *  atlas + json__meta 두 번 읽는 이유: Phaser atlas 는 이미지 프레임만 만들고
+     *  meta.pixelfx(pivot·fps·loop)는 캐시에 남기지 않는다. pixelfxBridge 가 그걸 쓴다. */
+    this.load.setPath("assets/fx");
+    for (const k of PIXELFX_SHEETS) {
+      this.load.atlas(k, `${k}.png`, `${k}.json`);
+      this.load.json(`${k}__meta`, `${k}.json`);
+    }
+  }
+
+  async create() {
+    /* v1.4.1 — 실패 에셋 자동 재시도 완료 후 타이틀 진행 (몇몇 스프라이트 누락 원천 차단) */
+    await this.retryFailedLoads();
+    /* v1.4.2 — 재시도 후 최종 무결성 감사: loaderror 재시도 3회 한도 초과분까지
+     *  전수 대조해 누락/손상 텍스처를 타이틀 진입 전에 수복한다. */
+    await runTexGuardCycle(this, "부트");
+    (window as unknown as { __SERTZ_TEXGUARD__?: unknown }).__SERTZ_TEXGUARD__ = getTexGuardStats();
+    /* v1.0.20 — 타이틀로 넘어가기 전 로딩 UI 정리 (검은 화면 잔상 방지) */
+    this.bootUi?.destroy();
+    this.bootUi = undefined;
+    buildAllAnims(this);
+    /* vc140 — 보스 화질 복구 2차(엔진 측): pixelArt:true(antialias:false)는 모든 텍스처를
+     *  NEAREST(1)로 업로드한다 — 그림체 고해상 보스 아트가 카메라 줌(1.25~2.5배) 확대 시
+     *  계단 픽셀·격자 뭉개짐이 됐다("보스 화질 ㅈ구림"의 엔진 측 근본 원인).
+     *  보스 아틀라스 9종만 LINEAR(0)로 오버라이드 — 캐릭터/타일 등 픽셀아트는 기존 NEAREST 유지.
+     *  Phaser 문서 기준: "Use LINEAR for smooth scaling of high-resolution artwork". */
+    for (const { key } of Object.values(BOSS_ATLAS)) {
+      if (this.textures.exists(key)) this.textures.get(key).setFilter(Phaser.Textures.FilterMode.LINEAR);
+    }
+    /* v1.4.31 (#4) — 아틀라스 보스 9종 풀애니 부팅 즉시 등록 (시트가 preload에 포함되어 바로 가능 —
+     *  기존은 Boss 스폰 시점 등록이라 E2E·첫 스폰 직전까지 애니 부재). 구형 폴백 애니는 등록하지 않는다. */
+    for (const tex of Object.keys(BOSS_ATLAS)) registerBossAnims(this, tex);
+    /* vc142 (#9/#12) — vx_ 플립북 애니 등록 (유저 에셋팩 크롭분 — 보스 고유 패턴/3D 오버레이 공용) */
+    const VX_ANIMS: [string, string, number, number, number][] = [
+      ["vx-fire", "vx_fire", 0, 8, 14],
+      ["vx-elec", "vx_elec", 0, 13, 20],
+      ["vx-bolt", "vx_bolt", 0, 7, 16],
+      ["vx-smoke", "vx_smoke", 0, 7, 12],
+      ["vx-expcore", "vx_expcore", 0, 3, 12],
+      ["vx-smokecloud", "vx_smokecloud", 0, 3, 10],
+      ["vx-petal", "vx_petal", 0, 3, 8],
+      ["vx-debris", "vx_debris", 0, 8, 16],
+    ];
+    for (const [key, tex, from, to, rate] of VX_ANIMS) {
+      if (!this.textures.exists(tex)) continue;
+      if (this.anims.exists(key)) continue;
+      this.anims.create({ key, frames: this.anims.generateFrameNumbers(tex, { start: from, end: to }), frameRate: rate, repeat: 0 });
+    }
+    /* v4.1.5 — Galmuri 픽셀 폰트 로딩 대기 (최대 2.5초 폴백).
+     *  Phaser 캔버스 텍스트(데미지 숫자/배너/월드 라벨)가 Galmuri로 렌더되려면
+     *  씬 시작 전 document.fonts 로드 완료가 필요하다. 실패해도 sans-serif 폴백. */
+    try {
+      if (typeof document !== "undefined" && document.fonts) {
+        await Promise.race([
+          Promise.all([
+            document.fonts.load('400 22px Galmuri11'),
+            document.fonts.load('700 22px Galmuri11'),
+            document.fonts.load('400 18px Galmuri9'),
+            document.fonts.load('400 30px Galmuri14'),
+          ]),
+          new Promise((r) => setTimeout(r, 2500)),
+        ]);
+      }
+    } catch {
+      /* 폰트 로드 실패 — 기본 폰트로 계속 */
+    }
+    this.scene.start("title");
+  }
+}

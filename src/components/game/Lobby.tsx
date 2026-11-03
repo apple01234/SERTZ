@@ -1,0 +1,558 @@
+"use client";
+
+/**
+ * v1.0.19 — 로비 (메이플스토리 캐릭터 선택·생성 화면 재현 — 지시서 A-1/B-1 반영)
+ *
+ *  [A-1 스크롤 수정] 루트를 overflow-y-auto 스크롤 컨테이너로 전환 —
+ *    콘텐츠가 뷰포트보다 길면(모바일 세로 등) 전체가 스크롤된다. 데스크톱 lg+는 2컬럼 유지.
+ *    게임 캔버스(game-root fixed)와 분리되어 인게임 중엔 페이지 스크롤이 없다.
+ *
+ *  [B-1 메이플식 캐릭터 선택창]
+ *   · 슬롯 그리드 — 외형 미리보기(색조 틴트 캔버스)·레벨·직업·닉네임 표시, 빈 슬롯 [+]
+ *   · 더블클릭(모바일: 탭 후 "이 캐릭터로 시작")으로 입장
+ *   · 생성 플로우 3단계: ①닉네임 → ②직업 선택 → ③외형 선택(색조 팔레트)
+ *   · 삭제 확인 모달 · 캐릭터별 개별 세이브(sertz_char_<id>) · 슬롯 확장(유니온 코인)
+ */
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Play, Trash2, UserPlus, Users, Coins, ChevronLeft, ChevronRight, X, Swords, Shield, Zap, Gauge, Clock, Lock } from "lucide-react";
+import { EventBus } from "./EventBus";
+import { loadUnion, buySlotExpand } from "@/game/union";
+import { loadSlots, writeSlots, createCharacter, deleteCharacter, readCharSave, setActiveChar, getActiveCharId, BASE_SLOTS, type CharMeta } from "@/game/slots";
+import { loadSave, writeSave } from "@/game/config";
+import { authMe, nameTaken, claimName, releaseName } from "@/game/account"; // v1.2.0 (#7) — GM 외형 옵션은 admin 롤에만 노출 · v1.0.6 — 닉네임 중복 방지
+import { classDef, isClassKey, classLabel, familyOf, type ClassKey } from "@/game/classes";
+import type { SaveData } from "@/game/config";
+import { resolveCharacterPreview, type CharacterAppearance } from "@/game/characterAppearance";
+
+/* v1.4.30 (#8 모험가 시작) — 캐릭터 생성 시 직업 선택 단계를 철거:
+ *  모든 캐릭터는 공통 직업 "모험가"로 태어나고, 마을 퀘스트 체인(전직 퀘스트) 완료 후
+ *  전직관(K키)에서 1차 계열(전사/궁수/마법사/도적)을 선택·시련을 통과해 전직한다.
+ *  (기존 CLASS_PREVIEWS는 전직관(JobPanel)에서 이미 직업 정보를 제공하므로 제거) */
+/* v1.1.0 (#21/#22) — 성별 × 피부 6종. multiply 틴트(다 어두워지는 문제) 폐기 →
+ *  실제 생성된 스프라이트 시트(chm/chf_*)를 그대로 미리보기 (백자~초콜릿 밝은 피부 포함) */
+const SKIN_CHOICES: { idx: number; name: string }[] = [
+  { idx: 0, name: "백자" },
+  { idx: 1, name: "밝은" },
+  { idx: 2, name: "기본" },
+  { idx: 3, name: "밀색" },
+  { idx: 4, name: "구릿빛" },
+  { idx: 5, name: "초콜릿" },
+];
+/** 선택창도 Player와 같은 기존 몸체/FA 프레임을 사용한다. 아우라는 표시하지 않는다. */
+function CharAvatar({ size = 44, fit = "square", ...look }: CharacterAppearance & { size?: number; fit?: "square" | "natural" }) {
+  const preview = resolveCharacterPreview(look);
+  const width = fit === "natural" ? size * preview.width / preview.height : size;
+  const scale = Math.min(width / preview.width, size / preview.height);
+  const crop = preview.crop;
+  return (
+    <span role="img" aria-label="캐릭터 외형 미리보기" className="relative inline-flex shrink-0 items-center justify-center overflow-hidden" style={{ width, height: size }}>
+      {crop && preview.sheet ? (
+        <span style={{ display: "block", width: crop.w * scale, height: crop.h * scale, imageRendering: "pixelated", backgroundImage: `url(${preview.src})`, backgroundSize: `${preview.sheet.w * scale}px ${preview.sheet.h * scale}px`, backgroundPosition: `${-crop.x * scale}px ${-crop.y * scale}px`, backgroundRepeat: "no-repeat" }} />
+      ) : (
+        <img src={preview.src} alt="" style={{ width: preview.width * scale, height: preview.height * scale, imageRendering: "pixelated" }} draggable={false} />
+      )}
+    </span>
+  );
+}
+
+function relTime(ts: number): string {
+  if (!ts) return "기록 없음";
+  const diff = Date.now() - ts;
+  if (diff < 60000) return "방금 전";
+  if (diff < 3600000) return `${Math.floor(diff / 60000)}분 전`;
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)}시간 전`;
+  return `${Math.floor(diff / 86400000)}일 전`;
+}
+
+export function Lobby({ onExit }: { onExit: () => void }) {
+  const [, force] = useState(0);
+  const refresh = () => force((n) => n + 1);
+  const [selId, setSelId] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
+  /* v1.0.19 (B-1) — 생성 플로우 3단계: ①이름 → ②직업 → ③외형 */
+  const [step, setStep] = useState(0);
+    const [nameInput, setNameInput] = useState("");
+  const [lookGender, setLookGender] = useState<"m" | "f">("m");
+  const [lookSkin, setLookSkin] = useState<number>(2);
+  /* v1.2.0 (#7) — GM 계정만 보이는 GM 외형 옵션 (파란 몸 + 무지개 머리) */
+  const [lookGm, setLookGm] = useState(false);
+  const [gmOk, setGmOk] = useState(false);
+  useEffect(() => {
+    void authMe().then((u) => setGmOk(u?.role === "admin"));
+  }, []);
+  const [delId, setDelId] = useState<string | null>(null);
+  const [msg, setMsg] = useState<string | null>(null); // v1.1.0 — 구문 오류 복구 (v1.0.20 커밋분)
+
+  const store = useMemo(() => loadSlots(), [selId, creating, delId, msg]);  
+  const coins = loadUnion().coins;
+  const chars = Object.values(store.chars).sort((a, b) => b.lastSeen - a.lastSeen);
+  const used = chars.length;
+  const sel = selId ? store.chars[selId] : chars[0] ?? null;
+  const selSave = sel ? readCharSave(sel.id) : null;
+
+  /* 로비 진입 시 활성 캐릭터 해제 — 세이브 쓰기 차단 (계정 화면 보호) */
+  useEffect(() => {
+    setActiveChar(null);
+  }, []);
+
+  /* 캐릭터 생성 직후 세이브에 없는 기본 키 채우기 (loadSave 정규화 재사용) */
+  const startChar = (meta: CharMeta) => {
+    let save = readCharSave(meta.id);
+    if (!save) {
+      save = { stage: "village", lv: 1, exp: 0, maxHp: 100, atk: 10, cleared: false, maxMp: 60, playerName: meta.name, cls: meta.cls, startCls: meta.cls, gold: 30, lookTint: meta.lookTint ?? null, gender: meta.gender ?? "m", skinIdx: meta.skinIdx ?? 2 } as SaveData;
+      writeSave(save);
+    }
+    setActiveChar(meta.id);
+    EventBus.emit("game:continue", save);
+  };
+
+  const openCreate = () => {
+    setCreating(true);
+    setStep(0);
+    setNameInput("");
+    setLookGender("m");
+    setLookSkin(2);
+    setLookGm(false);
+    setMsg(null);
+  };
+
+  /* v1.0.6 (신3) — 이름 확인/등록 진행 중 플래그 (이중 클릭 방지 + 서버 검증 대기 표시) */
+  const [nameChecking, setNameChecking] = useState(false);
+
+  /* v1.0.6 (신3) — 캐릭터 삭제 시 서버에 이름 반납 (전역 중복 방지 레지스트리 해제) */
+  const deleteCharAndRelease = (id: string) => {
+    const meta = store.chars[id];
+    deleteCharacter(id);
+    setDelId(null);
+    setSelId(null);
+    refresh();
+    if (meta?.name) void releaseName(meta.name).catch(() => {}); // 오프라인 무시
+  };
+
+  /* v1.0.6 (신3) — 캐릭터 이름 전역 중복 방지:
+   *  ① 서버에 이름 사용 여부 확인 (도달 불가면 기기 내 중복만으로 진행 — 오프라인 플레이 보호)
+   *  ② 사용 가능하면 claim 등록 후 생성, 생성 실패 시 반납
+   *  ③ 중복이면 1단계로 되돌려 안내 */
+  const doCreate = async () => {
+    const trimmed = nameInput.trim();
+    if (!trimmed || nameChecking) return;
+    setNameChecking(true);
+    try {
+      const taken = await nameTaken(trimmed);
+      if (taken) {
+        setMsg("이미 다른 모험가가 사용 중인 이름이에요 — 다른 이름을 정해 주세요");
+        setStep(0);
+        return;
+      }
+      const claimed = await claimName(trimmed, "char");
+      if (!claimed.ok && claimed.status === 409) {
+        setMsg("이미 다른 모험가가 사용 중인 이름이에요 — 다른 이름을 정해 주세요");
+        setStep(0);
+        return;
+      }
+      const r = createCharacter(trimmed, null, null, { gender: lookGender, skinIdx: lookSkin, gmSkin: lookGm && gmOk }); // v1.4.30 (#8) 모험가 시작
+      if (!r.ok) {
+        if (claimed.ok) void releaseName(trimmed).catch(() => {}); // 생성 실패 — 방금 claim 반납
+        setMsg(r.reason);
+        setStep(0); // 이름 문제일 수 있으니 1단계로
+        return;
+      }
+      setCreating(false);
+      setNameInput("");
+      setLookGender("m");
+      setLookSkin(2);
+      setSelId(r.id);
+      setMsg(null);
+      refresh();
+    } finally {
+      setNameChecking(false);
+    }
+  };
+
+  const expand = () => {
+    const u = loadUnion();
+    if (used >= 16) {
+      setMsg("최대 슬롯(16개)에 도달했다");
+      return;
+    }
+    if (u.coins < 60) {
+      setMsg(`유니온 코인이 부족하다 (60 필요 — 현재 ${u.coins})`);
+      return;
+    }
+    /* 코인 차감 + 확장은 buySlotExpand 한 번에 처리 */
+    if (buySlotExpand()) {
+      setMsg(null);
+      refresh();
+      EventBus.emit("banner:show", { text: "캐릭터 슬롯이 1개 늘었다!" });
+    } else {
+      setMsg("슬롯 확장에 실패했다 (코인 부족 또는 최대 도달)");
+    }
+  };
+
+  const account = useMemo(() => {
+    try {
+      const raw = window.localStorage.getItem("sertz.auth.user");
+      return raw ? (JSON.parse(raw) as { id?: string; name?: string; email?: string }) : null;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const clsColor = (c: string | null) => {
+    const d = c ? classDef(c) : null;
+    return d?.color ?? "#9fb3d9";
+  };
+
+  /* v1.0.19 (B-1) — 생성 플로우 단계 검증 */
+  const nameOk = nameInput.trim().length >= 1;
+  const STEP_LABELS = ["이름", "직업", "외형"];
+
+  return (
+    /* [A-1 v1.0.19] 루트가 스크롤 컨테이너 — 모바일 세로에서 카드 그리드+정보 패널이 세로로 쌓여도 전체 스크롤된다
+     *  v1.0.20 — 게임형 로비: 밤하늘 → 왕가 네이비+우드 톤 */
+    <div className="sertz-scroll absolute inset-0 z-40 overflow-y-auto bg-gradient-to-b from-[#0d1424] via-[#101a30] to-[#080d18]">
+      <div className="flex min-h-full flex-col px-3 pb-6 pt-2.5 sm:px-5">
+        {/* 헤더 — 금색 네임플레이트 */}
+        <div className="game-chip mb-2 flex items-center justify-between gap-2 px-3 py-2">
+          <div className="flex items-center gap-2">
+            <Users size={18} className="text-[#ffd98a]" />
+            <div>
+              <p className="text-sm font-black tracking-wide text-[#ffd98a]">캐릭터 선택</p>
+              <p className="text-[9px] font-bold text-white/55">더블클릭으로 바로 입장 · 캐릭터마다 레벨·장비·진행도가 개별 저장된다</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="hidden rounded-md border border-[#8a6a34]/70 bg-black/40 px-2 py-1 text-[10px] font-black text-[#ffd98a] sm:inline-flex sm:items-center sm:gap-1">
+              <Coins size={11} />
+              유니온 코인 {coins}
+            </span>
+            {account && (
+              <span className="hidden rounded-md border border-[#8a6a34]/70 bg-black/40 px-2 py-1 text-[10px] font-black text-[#cbb88a] md:inline">
+                {account.name || account.email || "계정"} 로그인 중
+              </span>
+            )}
+            <button onClick={onExit} aria-label="타이틀로" className="game-chip flex h-9 w-9 items-center justify-center text-white/70">
+              <X size={15} />
+            </button>
+          </div>
+        </div>
+
+        {/* v1.4.4 — 행 높이 압축 제거(min-h-0 flex-1 삭제): 모바일 가로(높이 390~)에서 flex-1이 행을
+         *  뷰포트 높이로 압착해 디테일 카드가 행 밖으로 넘치고 "이 캐릭터로 시작" 버튼이 스크롤
+         *  영역 밖(scrollHeight 초과)에 그려져 입장 불가였던 버그 수정. 행이 콘텐츠 높이만큼 자라
+         *  루트(sertz-scroll) 스크롤이 정상 동작한다. */}
+        <div className="flex flex-col gap-2 lg:flex-row">
+          {/* 캐릭터 카드 그리드 — [A-1] 내부 독자 스크롤 제거(루트 스크롤로 통합) */}
+          <div className="flex-1">
+            {/* vc210 (#otaku-cards) — 카드 폭을 줄여 세로 비율(≈0.75)을 확보한다.
+             *  종전 2/3/4 컬럼은 카드가 264×111(비율 0.42)로 가로형이 돼
+             *  씹덕 가챠 카드가 아니라 "선택 슬롯"으로 읽혔다(스크린샷 검토 지적).
+             *  컬럼을 늘려 폭을 줄이면 초상화 영역이 카드의 70%를 차지한다. */}
+            <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4 lg:grid-cols-6">
+              {chars.map((m) => {
+                const saved = readCharSave(m.id);
+                const look = { ...m, ...saved, gmApproved: gmOk };
+                const active = sel?.id === m.id;
+                const color = clsColor(m.cls);
+                return (
+                  <button
+                    key={m.id}
+                    onClick={() => { setSelId(m.id); setMsg(null); }}
+                    onDoubleClick={() => startChar(m)}
+                    data-selected={active ? "true" : "false"}
+                    className="game-chip otaku-card otaku-portrait text-left"
+                    style={{
+                      borderColor: active ? "#e8c064" : "#7a5a2e",
+                      /* 클래스 색을 카드 배경 그라데이션에 반영 (Priconne 실측 #f55291 패턴 응용) */
+                      ["--otaku-accent" as string]: color,
+                    }}
+                  >
+                    {/* ── 상단 초상화 영역: 카드 높이의 ~62% (씹덕 카드의 실제 비율) ── */}
+                    <div className="otaku-art">
+                      <CharAvatar {...look} size={128} fit="natural" />
+                      <div className="otaku-card-scrim" />
+                      {/* 우상단 레어도/환생 별 — Genshin 카드의 별 모티프 */}
+                      {m.rebirths > 0 && (
+                        <span className="otaku-stars absolute right-1 top-1 text-[9px] font-black leading-none">
+                          {"★".repeat(Math.min(5, m.rebirths))}
+                        </span>
+                      )}
+                      {/* 좌상단 클래스 배지 */}
+                      <span
+                        className="otaku-badge absolute left-1 top-1 rounded px-1 py-0.5 text-[8px] font-black backdrop-blur-sm"
+                        style={{ color, background: `${color}33`, border: `1px solid ${color}55` }}
+                      >
+                        {classLabel(m.cls as ClassKey) || "모험가"}
+                      </span>
+                    </div>
+
+                    {/* ── 하단 정보 영역 ── */}
+                    <div className="relative z-10 -mt-3 px-1.5 pb-1.5">
+                      <p className="otaku-name truncate text-[12px] font-black text-white">{m.name}</p>
+                      <div className="mt-0.5 flex items-center justify-between gap-1">
+                        <p className="text-[10px] font-black text-amber-200">
+                          Lv. {m.lv}{m.rebirths > 0 ? ` · 환생 ${m.rebirths}` : ""}
+                        </p>
+                        <p className="flex items-center gap-0.5 text-[8px] font-bold text-white/50">
+                          <Clock size={8} />
+                          {relTime(m.lastSeen)}
+                        </p>
+                      </div>
+                      {m.cleared && <p className="mt-0.5 text-[8px] font-black text-emerald-300">세계수 구원 완료</p>}
+                    </div>
+                  </button>
+                );
+              })}
+              {/* 생성 카드 / 잠긴 슬롯 */}
+              {used < store.slots ? (
+                <button
+                  onClick={openCreate}
+                  className="game-chip flex min-h-[92px] flex-col items-center justify-center gap-1 border-dashed text-white/50 transition-colors hover:border-[#e8c064] hover:text-[#ffd98a]"
+                >
+                  <UserPlus size={18} />
+                  <p className="text-[10px] font-black">캐릭터 생성</p>
+                </button>
+              ) : (
+                <div className="game-chip flex min-h-[92px] flex-col items-center justify-center gap-1 border-dashed text-white/55">
+                  <Lock size={16} />
+                  <p className="text-[9px] font-bold">슬롯 확장 필요</p>
+                </div>
+              )}
+            </div>
+            <button onClick={expand} className="game-btn-ghost mx-auto mt-2 flex items-center gap-1 px-2.5 py-1.5 text-[10px] font-black text-[#f0e2c0] active:scale-95">
+              <Coins size={11} className="text-[#ffd98a]" />
+              슬롯 확장 (유니온 코인 60) — {used}/{store.slots}
+            </button>
+          </div>
+
+          {/* 정보 패널 — 게임형 프레임 */}
+          <div className="game-panel w-full shrink-0 p-3 lg:w-[340px]">
+            {creating ? (
+              <div>
+                <div className="mb-2 flex items-center justify-between">
+                  <p className="text-[12px] font-black text-[#ffd98a]">캐릭터 생성</p>
+                  <button onClick={() => setCreating(false)} className="game-chip flex h-7 w-7 items-center justify-center text-white/50">
+                    <ChevronLeft size={13} />
+                  </button>
+                </div>
+                {/* v1.0.19 (B-1) — 단계 인디케이터: v1.4.30 (#8) ①이름 → ②외형 */}
+                <div className="mb-2 flex items-center gap-1">
+                  {STEP_LABELS.map((lb, i) => (
+                    <div key={lb} className="flex flex-1 items-center gap-1">
+                      <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[9px] font-black ${i === step ? "bg-amber-400 text-slate-900" : i < step ? "bg-emerald-400/80 text-slate-900" : "border border-white/20 bg-black/40 text-white/55"}`}>
+                        {i < step ? "✓" : i + 1}
+                      </span>
+                      <span className={`text-[9px] font-black ${i === step ? "text-amber-200" : "text-white/55"}`}>{lb}</span>
+                      {i < STEP_LABELS.length - 1 && <div className={`h-px flex-1 ${i < step ? "bg-emerald-400/60" : "bg-white/15"}`} />}
+                    </div>
+                  ))}
+                </div>
+
+                {/* ── 1단계: 닉네임 ── */}
+                {step === 0 && (
+                  <div>
+                    <p className="text-[10px] font-bold leading-relaxed text-white/55">모험가의 이름을 정해라. (최대 8자 — 게임 내 모든 캐릭터에서 이 이름으로 불린다)</p>
+                    <input
+                      value={nameInput}
+                      onChange={(e) => setNameInput(e.target.value)}
+                      maxLength={8}
+                      placeholder="캐릭터 이름 (최대 8자)"
+                      className="game-input mt-2 w-full px-3 py-2.5 text-[13px] font-bold placeholder:text-white/55"
+                    />
+                    {msg && <p className="mt-1 text-[10px] font-black text-[#ff9a8a]">{msg}</p>}
+                    <button
+                      onClick={() => { if (nameOk) { setMsg(null); setStep(1); } }}
+                      disabled={!nameOk || nameChecking}
+                      className="game-btn mt-2 flex w-full items-center justify-center gap-1 px-3 py-2.5 text-[12px] font-black active:scale-95 disabled:opacity-40"
+                    >
+                      {nameChecking ? "이름 확인 중…" : "다음 — 외형 선택"}
+                      <ChevronRight size={14} />
+                    </button>
+                  </div>
+                )}
+
+                {/* ── 2단계: 외형 선택 (v1.1.0 — 성별 + 피부 6종, 실제 스프라이트 미리보기)
+                 *  v1.4.30 (#8) — 직업 선택 단계 철거: 모든 캐릭터는 "모험가"로 시작하고
+                 *  마을 퀘스트(전직 퀘스트) 완료 후 전직관에서 1차 계열을 선택한다 ── */}
+                {step === 1 && (
+                  <div>
+                    <p className="text-[10px] font-bold leading-relaxed text-white/55">성별과 피부를 골라 외형을 꾸며라. 언제든 로비에서 다른 캐릭터를 만들 수 있다.</p>
+                    <div className="mt-2 flex items-center gap-3 rounded-lg border border-white/12 bg-black/40 p-2.5">
+                      <CharAvatar gender={lookGender} skinIdx={lookSkin} gmSkin={lookGm} gmApproved={gmOk} size={64} />
+                      <div>
+                        <p className="text-[11px] font-black text-white">{nameInput.trim() || "이름 미정"}</p>
+                        <p className="text-[9px] font-bold text-[#9fb3d9]">모험가 · Lv.1 — 마을 퀘스트 완료 후 전직관에서 직업 선택!</p>
+                        <p className="mt-0.5 text-[9px] font-black text-amber-200">{lookGm ? "GM 형태" : `${lookGender === "f" ? "여캐" : "남캐"} · ${SKIN_CHOICES.find((x) => x.idx === lookSkin)?.name ?? "기본"}`}</p>
+                      </div>
+                    </div>
+                    <p className="mt-2 text-[9px] font-black text-white/50">성별</p>
+                    <div className="mt-1 grid grid-cols-2 gap-1.5">
+                      {([["m", "남캐"], ["f", "여캐"]] as const).map(([g, label]) => {
+                        const on = lookGender === g;
+                        return (
+                          <button
+                            key={g}
+                            onClick={() => setLookGender(g)}
+                            className={`flex items-center gap-2 rounded-lg border-2 px-2 py-1.5 transition-transform active:scale-95 ${on ? "border-amber-300 bg-amber-400/10" : "border-white/10 bg-white/[0.03]"}`}
+                          >
+                            <CharAvatar gender={g} skinIdx={2} size={30} />
+                            <span className={`text-[10px] font-black ${on ? "text-amber-200" : "text-white/60"}`}>{label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {/* v1.2.0 (#7) — GM 계정 전용 외형: 파란 몸 + 무지개 머리 */}
+                    {gmOk && (
+                      <>
+                        <p className="mt-2 text-[9px] font-black text-[#ffd76a]">✦ 운영자 전용 외형</p>
+                        <button
+                          onClick={() => setLookGm((v) => !v)}
+                          className={`mt-1 flex w-full items-center gap-2 rounded-lg border-2 px-2 py-1.5 transition-transform active:scale-95 ${lookGm ? "border-amber-300 bg-amber-400/10" : "border-white/10 bg-white/[0.03]"}`}
+                        >
+                          <CharAvatar gmSkin gmApproved={gmOk} size={30} />
+                          <span className={`text-[10px] font-black ${lookGm ? "text-amber-200" : "text-white/60"}`}>GM 형태 (무지개)</span>
+                          <span className="ml-auto rounded bg-amber-400/20 px-1 text-[8px] font-black text-amber-200">[GM]</span>
+                        </button>
+                      </>
+                    )}
+                    <p className="mt-2 text-[9px] font-black text-white/50">피부</p>
+                    <div className="mt-1 grid grid-cols-3 gap-1.5">
+                      {SKIN_CHOICES.map((s) => {
+                        const on = lookSkin === s.idx;
+                        return (
+                          <button
+                            key={s.idx}
+                            onClick={() => setLookSkin(s.idx)}
+                            className={`flex flex-col items-center gap-0.5 rounded-lg border-2 px-1 py-1 transition-transform active:scale-95 ${on ? "border-amber-300 bg-amber-400/10" : "border-white/10 bg-white/[0.03]"}`}
+                          >
+                            <CharAvatar gender={lookGender} skinIdx={s.idx} size={32} />
+                            <span className={`text-[8px] font-black ${on ? "text-amber-200" : "text-white/55"}`}>{s.name}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {msg && <p className="mt-1 text-[10px] font-black text-[#ff9a8a]">{msg}</p>}
+                    <div className="mt-2 grid grid-cols-2 gap-1.5">
+                      <button onClick={() => setStep(0)} className="game-btn-ghost flex items-center justify-center gap-1 px-3 py-2.5 text-[11px] font-black active:scale-95">
+                        <ChevronLeft size={13} />
+                        이름
+                      </button>
+                      <button
+                        onClick={doCreate}
+                        disabled={nameChecking}
+                        className="game-btn px-3 py-2.5 text-[12px] font-black active:scale-95 disabled:opacity-40"
+                      >
+                        {nameChecking ? "이름 확인 중…" : "모험가로 생성!"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : sel ? (
+              <div>
+                <div className="flex items-center gap-2.5">
+                  <CharAvatar {...sel} {...selSave} gmApproved={gmOk} size={52} />
+                  <div className="min-w-0">
+                    <p className="truncate text-[13px] font-black text-white">{sel.name}</p>
+                    <p className="text-[10px] font-bold" style={{ color: clsColor(sel.cls) }}>
+                      {classLabel(sel.cls as ClassKey) || "모험가"} · Lv. {sel.lv} · 환생 {sel.rebirths}회
+                    </p>
+                  </div>
+                </div>
+                {/* v1.4.4 — 시작 버튼을 카드 최상단으로: 모바일 가로에서 통계 뒤로 밀리면
+                 *  폴드 밖으로 잘려 시작 자체가 불가능했다. 주요 액션 우선 배치. */}
+                <button
+                  onClick={() => startChar(sel)}
+                  className="game-btn mt-2.5 flex w-full items-center justify-center gap-1.5 px-3 py-3 text-[13px] font-black active:scale-95"
+                >
+                  <Play size={15} />
+                  이 캐릭터로 시작
+                </button>
+                <p className="mt-1 text-center text-[8px] font-bold text-white/55">카드를 더블클릭해도 바로 시작된다</p>
+                <div className="mt-2 grid grid-cols-2 gap-1 text-center">
+                  <div className="game-chip py-1.5">
+                    <p className="flex items-center justify-center gap-0.5 text-[8px] font-bold text-white/55"><Swords size={8} />공격력</p>
+                    <p className="text-[11px] font-black text-[#ffd98a]">{selSave?.atk ?? "?"}</p>
+                  </div>
+                  <div className="game-chip py-1.5">
+                    <p className="flex items-center justify-center gap-0.5 text-[8px] font-bold text-white/55"><Shield size={8} />최대 HP</p>
+                    <p className="text-[11px] font-black text-[#ffb0b0]">{selSave?.maxHp ?? "?"}</p>
+                  </div>
+                  <div className="game-chip py-1.5">
+                    <p className="flex items-center justify-center gap-0.5 text-[8px] font-bold text-white/55"><Zap size={8} />골드</p>
+                    <p className="text-[11px] font-black text-[#ffe49a]">{(selSave?.gold ?? 0).toLocaleString()}</p>
+                  </div>
+                  <div className="game-chip py-1.5">
+                    <p className="flex items-center justify-center gap-0.5 text-[8px] font-bold text-white/55"><Gauge size={8} />마지막 구역</p>
+                    <p className="truncate text-[11px] font-black text-[#cbb88a]">{sel.stage}</p>
+                  </div>
+                </div>
+                {(() => {
+                  const sc = (selSave as { startCls?: string | null } | null)?.startCls ?? sel.cls;
+                  const fam = familyOf(sc || undefined);
+                  return fam ? (
+                    <p className="mt-2 rounded border border-white/10 bg-white/[0.03] px-2 py-1.5 text-[9px] font-bold leading-relaxed text-white/50">
+                      환생 시 <b style={{ color: clsColor(sel.cls) }}>{classLabel(sc as ClassKey)}</b>(으)로 돌아온다 · 시작 캐릭터가 기록되어 있다
+                    </p>
+                  ) : (
+                    <p className="mt-2 rounded border border-white/10 bg-white/[0.03] px-2 py-1.5 text-[9px] font-bold leading-relaxed text-white/50">
+                      아직 시작 직업이 없다 — 1차 전직 시련을 통과하면 환생 시에도 그 직업으로 시작한다
+                    </p>
+                  );
+                })()}
+                <button
+                  onClick={() => setDelId(sel.id)}
+                  className="mx-auto mt-1 flex items-center gap-1 text-[10px] font-bold text-white/55 underline underline-offset-2 hover:text-[#ff9a8a]"
+                >
+                  <Trash2 size={11} />
+                  캐릭터 삭제
+                </button>
+                {msg && <p className="mt-1 text-[10px] font-black text-[#ff9a8a]">{msg}</p>}
+              </div>
+            ) : (
+              <div className="flex h-full flex-col items-center justify-center gap-2 py-8 text-center">
+                <UserPlus size={26} className="text-white/55" />
+                <p className="text-[11px] font-black text-white/50">첫 캐릭터를 만들어 모험을 시작하자</p>
+                <button onClick={openCreate} className="game-btn px-4 py-2.5 text-[11px] font-black">
+                  캐릭터 생성
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* 삭제 확인 모달 — v1.1.3 (#모달스크롤버그) 루트가 overflow-y-auto 스크롤 컨테이너라
+          absolute면 스크롤과 함께 밀려난다. fixed로 뷰포트 고정. */}
+      {delId && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70" onPointerDown={() => setDelId(null)}>
+          <div className="game-panel w-[min(92vw,340px)] p-4" onPointerDown={(e) => e.stopPropagation()}>
+            <p className="text-[13px] font-black text-[#ff9a8a]">정말 삭제하시겠습니까?</p>
+            <p className="mt-1 text-[11px] font-bold leading-relaxed text-white/60">
+              <b className="text-white">{store.chars[delId]?.name}</b>의 레벨·장비·진행도가 영구히 사라진다. (유니온 코인·아티팩트는 계정에 유지)
+            </p>
+            <div className="mt-3 grid grid-cols-2 gap-1.5">
+              <button onClick={() => setDelId(null)} className="game-btn-ghost px-3 py-2.5 text-[11px] font-black active:scale-95">
+                취소
+              </button>
+              <button
+                onClick={() => {
+                  /* v1.0.6 (신3) — 서버 이름 레지스트리 반납까지 일괄 처리 */
+                  deleteCharAndRelease(delId);
+                }}
+                className="game-btn-danger px-3 py-2.5 text-[11px] font-black active:scale-95"
+              >
+                삭제
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+void writeSlots;
+void getActiveCharId;
+void BASE_SLOTS;
+void isClassKey;
