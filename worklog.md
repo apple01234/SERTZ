@@ -4881,3 +4881,6 @@ Stage Summary:
 - 원래 게임 LICENSE(AGPL)를 유지하고 대상 저장소 초기 MIT 문서는 docs/licenses에 별도 보관했다. 게임/제공 에셋을 MIT로 일괄 변경하지 않는다.
 - 연결 앱의 프로젝트 생성은 권한 오류였으며 사용자 제공 토큰의 Git 연결 시도는 계정에 GitHub Login Connection이 없어 실패했다. 같은 fp 팀에 Git 연결 없는 새 프로젝트를 생성하고 .vercelignore로 선별한 소스를 직접 배포하는 경로를 사용한다. 토큰은 파일/설정에 저장하지 않는다.
 - 게임 로직은 검증된 f914541 그대로이며 저장소/배포 안내와 라이선스 보관만 추가했다. 기존 검사 62개, 타입·린트, 선별 소스 빌드 및 브라우저 전체 검사 결과를 유지한다. 실제 배포 상태와 공개 접속은 생성 후 확인한다.
+- 완료: SERTZ/main에 소스 커밋 727cab7을 업로드했고 원격 SHA 일치를 확인했다. 원래 저장소는 shallow clone이므로 대상 초기 main을 부모로 하는 동일 트리 스냅샷을 사용해 이력 단절 없이 fast-forward 전달했다. 기존 소스 브랜치/이력도 로컬에 보존했다.
+- fp 팀에 prj_iEfvcVgW790vIycqJBcix7T1R9wR을 생성하고 선별 추적 파일 848개를 업로드해 프로덕션 dpl_FnKCF5YjC6XFbCyqstUcMr8QgGzf의 READY를 API로 확인했다. 이후 조회된 프로젝트명은 sertz이며 Git 연결은 SERTZ/main이다. 사용자/외부에서 바뀐 프로젝트명과 연결은 덮어쓰지 않았다.
+- https://certz-memory-oath.vercel.app 공개 접속과 게임 에셋 113개 HTTP 200, 실제 배포 주소의 Chromium 전체 검사(첫 장/저장 복원/보스/모바일/저장 복구)를 통과했다. 협동 검사의 서버/계정 HTTP는 기존 로컬 테스트 구성이며 운영 서버 배포로 표시하지 않는다. 접속/배포/운영 한계를 DEPLOYMENT.md에 기록했다.
