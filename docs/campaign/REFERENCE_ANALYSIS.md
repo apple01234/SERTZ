@@ -1,5 +1,7 @@
 # REA 레퍼런스 분석 및 반영
 
+후속 심화 분석: 아래는 첫 조사 기록이다. 현재 적용 결과와 JENNY를 추가한 14개 범위, Godot 스크립트 복원, 23개 맵 전수 구조 검사, CIL coroutine 호출 추적은 [REFERENCE_DEEP_ANALYSIS.md](REFERENCE_DEEP_ANALYSIS.md)를 기준으로 한다. 이전의 정적 인물·생성 sunburst·에셋 pruning은 철회했다.
+
 REA 6.8.0을 설치하고 Codex MCP 등록, initialize 및 도구 229개 조회를 검증했다. 설치된 공식 스킬과 참조 문서는 `skills/reverse-engineer-anything/`에 복사했다. 원본: https://github.com/morluto/rea (MIT).
 
 입력 `reverse-engineer-anything.zip`의 13개 배포본을 각각 조사했다. 아래는 정적 파일·리소스·메타데이터 분석이며, 13개 게임을 실행해서 완주한 결과가 아니다. 상세 SHA-256, 실제 REA Evidence ID, 확인 범위는 [REFERENCE_LEDGER.json](REFERENCE_LEDGER.json)에 있다.

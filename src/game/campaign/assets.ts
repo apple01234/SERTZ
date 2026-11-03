@@ -1,6 +1,6 @@
 import manifest from "../../../public/assets/campaign/drive/manifest.json";
 import portraitCrops from "../../../public/assets/npcportrait/_map.json";
-import type { ChapterDefinition, Family } from "./catalog";
+import { type ChapterDefinition, type Family } from "./catalog";
 
 /** Original 32px artwork from the user's archive; no recolored replacement sprites. */
 export const CAMPAIGN_ASSETS: {
@@ -20,6 +20,7 @@ export const CAMPAIGN_ASSETS: {
     })),
   );
 export function portraitSource(art: string) {
+  if (art.startsWith("jobm_")) return `/assets/${art}_idle0.webp`;
   const url = CAMPAIGN_ASSETS.find((a) => a.key === `oath-${art}`)?.url;
   const key = url
     ?.split("/")
@@ -31,21 +32,53 @@ export function portraitSource(art: string) {
   );
 }
 export const FAMILY_ART: Record<Family, string> = {
-  warrior: "knight",
-  ranger: "archer",
-  mage: "mage",
-  thief: "duelist",
-  pirate: "captain",
-} as const;
+  warrior: "jobm_guardian",
+  ranger: "jobm_sniper",
+  mage: "jobm_archmage",
+  thief: "jobm_nightblade",
+  pirate: "jobm_stormcaptain",
+};
+export const BODY_FRAMES = [
+  "idle",
+  "walk",
+  "walkside",
+  "walkup",
+  "atk",
+  "atkdown",
+  "atkup",
+].flatMap((action) => Array.from({ length: 4 }, (_, i) => `${action}${i}`));
 export function guideArt(name: string) {
   if (["엘리아", "네메아", "리세아"].includes(name)) return "guardian";
   if (["카르엔", "벨노아"].includes(name)) return "shadow-knight";
   if (["바르델", "이셀", "루엔"].includes(name)) return "captain";
   return ["세리안", "오르시안"].includes(name) ? "sage" : "healer";
 }
+export const BOSS_PREFIXES = [
+  "boss",
+  "boss2",
+  "boss3",
+  "boss_nidhog",
+  "boss_surt",
+  "boss_fenrir",
+  "boss_nagr",
+];
+const THEME_BOSS: Record<string, string> = {
+  garden: "boss",
+  forest: "boss",
+  castle: "boss2",
+  harbor: "boss2",
+  ruin: "boss3",
+  astral: "boss_nidhog",
+  machine: "boss",
+  snow: "boss_nagr",
+  desert: "boss_fenrir",
+  volcano: "boss_surt",
+};
 export function bossArt(chapter: ChapterDefinition) {
-  return `boss-${chapter.id}`;
+  return THEME_BOSS[chapter.theme] ?? "boss_nidhog";
 }
+export const BOSS_SHEETS = manifest.bossSheets;
+export const ANIMATION_ASSETS = manifest.animationFiles;
 export const WORLD_PALETTES = {
   garden: [0x5c8457, 0x739560, 0xe3ca87],
   forest: [0x476b53, 0x59795a, 0xb4c487],

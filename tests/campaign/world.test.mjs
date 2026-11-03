@@ -53,11 +53,40 @@ test("click routes detour around walls and reject water, lava and outside target
 test("the library passage changes navigation while boss rooms preserve their clear arena", () => {
   const room = buildCampaignMap("castle", 1);
   const route = walkingRoute(room, { x: 544, y: 352 }, { x: 288, y: 352 });
-  assert.ok(route.some((point) => point.y === 288));
+  assert.ok(route.some((point) => point.y >= 256 && point.y < 304));
   assert.ok(room.structures.some(Boolean));
   assert.ok(
     buildCampaignMap("castle", 1, true).structures.every(
       (tile) => tile === null,
     ),
   );
+});
+
+test("visible furniture and trunks have collision footprints", () => {
+  assert.ok(
+    buildCampaignMap("castle", 1)
+      .objects.filter((o) => o.key === "library-shelf")
+      .every((o) => o.solid),
+  );
+  for (const theme of ["castle", "forest", "harbor", "machine"]) {
+    const map = buildCampaignMap(theme, 1);
+    const solids = map.objects.filter((p) => p.solid);
+    assert.ok(solids.length > 0);
+    for (const p of solids) {
+      const r = p.solid;
+      assert.equal(
+        canWalkAt(map, { x: r.x + r.width / 2, y: r.y + r.height / 2 - 16 }),
+        false,
+        p.key,
+      );
+    }
+  }
+});
+
+test("interior episodes change passage geometry without changing the visual/passage contract", () => {
+  const maps = [1, 2, 3].map((episode) => buildCampaignMap("castle", episode));
+  assert.equal(new Set(maps.map((m) => JSON.stringify(m.collision))).size, 3);
+  for (const map of maps)
+    for (const [i, structure] of map.structures.entries())
+      if (structure) assert.equal(map.collision[i], true);
 });

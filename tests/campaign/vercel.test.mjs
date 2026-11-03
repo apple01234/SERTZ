@@ -46,14 +46,14 @@ test("Vercel upload retains selected game assets and source-imported public meta
     `Vercel excludes required files:\n${excluded.join("\n")}`,
   );
   for (const file of [
-    "public/assets/tiles/kenney_tinytown.png",
-    "public/assets/npcbody/unused.png",
-    "public/assets/audio/unused.ogg",
-    "public/assets3d/unused.glb",
+    "public/assets/hero_walk0.webp",
+    "public/assets/jobm_guardian_atkup3.webp",
+    "public/assets/furn_table.webp",
+    "public/assets3d/character.glb",
   ])
     assert.equal(
       rules.ignores(file),
-      true,
-      `Unused asset should stay excluded: ${file}`,
+      false,
+      `Original runtime pack must be shipped: ${file}`,
     );
 });

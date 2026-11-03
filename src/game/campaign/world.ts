@@ -1,3 +1,4 @@
+import { sceneryFor, type Scenery } from "./scenery.ts";
 import type { Theme } from "./catalog.ts";
 export const TILE_SIZE = 64;
 export const MAP_COLS = 16;
@@ -7,6 +8,7 @@ export type CampaignMap = {
   ground: string[];
   structures: (string | null)[];
   collision: boolean[];
+  objects: Scenery[];
 };
 
 /** Own layouts: visual materials and passage flags are independent layers. */
@@ -37,7 +39,7 @@ export function buildCampaignMap(
       const partition =
         !arena &&
         ["castle", "machine", "ruin"].includes(theme) &&
-        col === 6 &&
+        col === [6, 9, 3][(episode - 1) % 3] &&
         row >= 2 &&
         row <= 6 &&
         row !== 4;
@@ -46,7 +48,7 @@ export function buildCampaignMap(
       collision.push(blocked || partition);
     }
   }
-  return { ground, structures, collision };
+  return { ground, structures, collision, objects: sceneryFor(theme) };
 }
 function cellAt(p: Point) {
   const col = Math.floor(p.x / TILE_SIZE),
@@ -56,56 +58,86 @@ function cellAt(p: Point) {
     : row * MAP_COLS + col;
 }
 export function canWalkAt(map: CampaignMap, p: Point, radius = 13) {
-  return [-radius, radius].every((dx) =>
-    [-radius, radius].every((dy) => {
-      const cell = cellAt({ x: p.x + dx, y: p.y + dy });
-      return cell >= 0 && !map.collision[cell];
+  const foot = { x: p.x, y: p.y + 16 };
+  return (
+    [-radius, radius].every((dx) =>
+      [-radius, radius].every((dy) => {
+        const cell = cellAt({ x: foot.x + dx, y: foot.y + dy });
+        return cell >= 0 && !map.collision[cell];
+      }),
+    ) &&
+    !map.objects.some(
+      ({ solid: r }) =>
+        r &&
+        foot.x + radius > r.x &&
+        foot.x - radius < r.x + r.width &&
+        foot.y + radius > r.y &&
+        foot.y - radius < r.y + r.height,
+    )
+  );
+}
+function clearSegment(map: CampaignMap, from: Point, to: Point) {
+  const steps = Math.ceil(Math.hypot(to.x - from.x, to.y - from.y) / 4);
+  return Array.from(
+    { length: steps + 1 },
+    (_, i) => i / Math.max(1, steps),
+  ).every((t) =>
+    canWalkAt(map, {
+      x: from.x + (to.x - from.x) * t,
+      y: from.y + (to.y - from.y) * t,
     }),
   );
 }
-/** Bounded 160-cell BFS; never sends click-to-walk through water or walls. */
+/** Fine navigation grid follows object footprints as well as tile walls. */
 export function walkingRoute(
   map: CampaignMap,
   from: Point,
   to: Point,
 ): Point[] {
-  const start = cellAt(from),
-    end = cellAt(to);
-  if (start < 0 || end < 0 || !canWalkAt(map, to)) return [];
-  if (start === end) return [to];
+  if (!canWalkAt(map, from) || !canWalkAt(map, to)) return [];
+  const cell = 16,
+    cols = 64,
+    rows = 40;
+  const index = (p: Point) =>
+    Math.floor(p.y / cell) * cols + Math.floor(p.x / cell);
+  const point = (n: number) => ({
+    x: (n % cols) * cell + cell / 2,
+    y: Math.floor(n / cols) * cell + cell / 2,
+  });
+  const start = index(from),
+    end = index(to);
+  if (start === end) return clearSegment(map, from, to) ? [to] : [];
   const queue = [start],
     previous = new Map<number, number>([[start, -1]]);
   for (let cursor = 0; cursor < queue.length && !previous.has(end); cursor++) {
-    const cell = queue[cursor],
-      col = cell % MAP_COLS,
-      row = Math.floor(cell / MAP_COLS);
-    for (const [x, y] of [
-      [col + 1, row],
-      [col - 1, row],
-      [col, row + 1],
-      [col, row - 1],
+    const n = queue[cursor],
+      x = n % cols,
+      y = Math.floor(n / cols);
+    for (const [nx, ny] of [
+      [x + 1, y],
+      [x - 1, y],
+      [x, y + 1],
+      [x, y - 1],
     ]) {
-      const next = y * MAP_COLS + x;
+      const next = ny * cols + nx;
       if (
-        x < 0 ||
-        x >= MAP_COLS ||
-        y < 0 ||
-        y >= MAP_ROWS ||
-        map.collision[next] ||
-        previous.has(next)
+        nx < 0 ||
+        ny < 0 ||
+        nx >= cols ||
+        ny >= rows ||
+        previous.has(next) ||
+        !canWalkAt(map, point(next)) ||
+        (n === start && !clearSegment(map, from, point(next))) ||
+        (next === end && !clearSegment(map, point(next), to))
       )
         continue;
-      previous.set(next, cell);
+      previous.set(next, n);
       queue.push(next);
     }
   }
   if (!previous.has(end)) return [];
   const route: Point[] = [];
-  for (let cell = end; cell !== start; cell = previous.get(cell)!)
-    route.push({
-      x: ((cell % MAP_COLS) + 0.5) * TILE_SIZE,
-      y: (Math.floor(cell / MAP_COLS) + 0.5) * TILE_SIZE,
-    });
+  for (let n = end; n !== start; n = previous.get(n)!) route.push(point(n));
   route.reverse();
   route.push(to);
   return route;

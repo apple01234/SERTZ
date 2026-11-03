@@ -72,6 +72,7 @@ import { OathAudio } from "@/game/campaign/audio";
 import { FAMILY_ART, guideArt, portraitSource } from "@/game/campaign/assets";
 import { purchaseCosmetic, restoreCosmetics } from "@/game/campaign/purchases";
 import type { Battle, BattleInput } from "@/game/campaign/battle";
+import { SKILLS } from "@/game/campaign/skills";
 import type {
   CampaignAccount,
   CampaignListing,
@@ -147,7 +148,12 @@ export default function CampaignRoot() {
     slotsRef = useRef(slots);
   progressRef.current = progress;
   slotsRef.current = slots;
-  const [playing, setPlaying] = useState(false),
+  const [playing, setPlaying] = useState(
+      () =>
+        typeof window !== "undefined" &&
+        new URLSearchParams(window.location.search).has("resume") &&
+        !!readSlots().activeId,
+    ),
     [panel, setPanel] = useState<Panel>(null),
     [name, setName] = useState(""),
     [family, setFamily] = useState<Family>("warrior");
@@ -294,8 +300,9 @@ export default function CampaignRoot() {
         progress,
         paused,
         reducedMotion: reduced,
+        cinematic: !!dialogue,
       });
-  }, [progress, paused, ready, reduced]);
+  }, [progress, paused, ready, reduced, dialogue]);
   useEffect(() => {
     consumeAuthTokenFromHash();
     let active = true,
@@ -471,7 +478,7 @@ export default function CampaignRoot() {
       setBusy(false);
     }
   }
-  function start() {
+  function start(destination = "story") {
     if (slots.characters.length >= (slots.capacity ?? 8)) {
       setNotice("현재 캐릭터 슬롯이 가득 찼습니다.");
       return;
@@ -479,6 +486,10 @@ export default function CampaignRoot() {
     const p = newCampaign(name, family, crypto.randomUUID());
     void music.current?.start().catch(() => {});
     commit(p);
+    if (destination === "camp") {
+      window.location.assign("/camp");
+      return;
+    }
     setPlaying(true);
     setPanel(null);
     setLog([]);
@@ -780,8 +791,19 @@ export default function CampaignRoot() {
               {FAMILIES[family].description} · 이야기를 통해 새로운 힘을
               배웁니다.
             </p>
-            <button className="oath-primary" onClick={start} disabled={!ready}>
+            <button
+              className="oath-primary"
+              onClick={() => start()}
+              disabled={!ready}
+            >
               서약을 시작하다 <ChevronRight size={18} />
+            </button>
+            <button
+              className="oath-secondary"
+              onClick={() => start("camp")}
+              disabled={!ready}
+            >
+              마을에서 시작 · 장비·전직·제작·하우징
             </button>
             {slots.characters.length > 0 && (
               <div className="oath-continue">
@@ -837,6 +859,14 @@ export default function CampaignRoot() {
                 <Crown size={18} />
                 <span>외형</span>
               </button>
+              <a
+                href="/camp"
+                className="oath-camp-link"
+                aria-label="마을·RPG 기능"
+              >
+                <Users />
+                <span>마을</span>
+              </a>
               <button aria-label="연합" onClick={() => openPanel("online")}>
                 <Users size={18} />
                 <span>연합</span>
@@ -919,11 +949,15 @@ export default function CampaignRoot() {
               </small>
               <div className="oath-cooldowns" aria-label="전투 기술 상태">
                 <span>
-                  원소술 K{" "}
+                  {SKILLS[progress.family].name} K{" "}
                   <b>
-                    {me && me.skillAt > battle.time
-                      ? `${((me.skillAt - battle.time) / 1000).toFixed(1)}초`
-                      : "준비"}
+                    {me && me.castAt > battle.time
+                      ? `시전 ${((me.castAt - battle.time) / 1000).toFixed(1)}초 · 회피로 취소`
+                      : me && me.recoveryUntil > battle.time
+                        ? "후딜"
+                        : me && me.skillAt > battle.time
+                          ? `${((me.skillAt - battle.time) / 1000).toFixed(1)}초`
+                          : "준비"}
                   </b>
                 </span>
                 <span>
@@ -935,6 +969,23 @@ export default function CampaignRoot() {
                   </b>
                 </span>
               </div>
+            </div>
+          )}
+          {view.bossIntro && (
+            <div
+              className="oath-battle-intro"
+              role="status"
+              aria-label="보스 등장 연출"
+            >
+              <span>전선 돌파</span>
+              <strong>{view.bossIntro}</strong>
+              <button
+                onClick={() =>
+                  EventBus.emit("campaign:command", { skipBattleIntro: true })
+                }
+              >
+                건너뛰기 · E
+              </button>
             </div>
           )}
           {!paused && !battle && view.nearby && (

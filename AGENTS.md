@@ -37,8 +37,9 @@ Mark deliberate ceilings with a `ponytail:` comment naming the upgrade path.
 ## 현재 제품 — 기억의 서약 (v2.0.0)
 
 - 사용자 최신 지시가 과거의 ‘기존 9챕터 유지’ 규칙보다 우선한다. **9개의 바다를 새 게임에 되살리지 않는다.**
-- 진입점: `src/components/campaign/CampaignRoot.tsx`. 정본·진행·전투: `src/game/campaign/`. 이전 WorldScene/데이터는 호환성 검사 및 과거 소스이며 새 게임 진입점이 아니다.
+- 커밋·푸시 대상은 **apple01234/SERTZ 하나**다. 다른 저장소에 커밋/푸시하지 않는다.
+- 본편 진입점: `src/components/campaign/CampaignRoot.tsx`. `/camp`는 원래 `GameRoot`/`WorldScene`/`Player`/`Panels`를 사용하는 RPG 거점·원정 진입점이다. 복구된 원본 기능을 다시 제거하지 않는다.
 - 초기 15화 정본, 2부 10장, 새 각색 3부 9장. 후반 하루 리부트와 혼합 금지.
-- 에셋은 사용자 Drive 소스의 SPUM 캐릭터·원본 초상·숲/마을/던전 소품과 DCSS 32px 지형/보스를 사용한다. Kenney Tiny Town/Tiny Dungeon을 새 캠페인에 다시 연결하지 않는다. 기존 `DECOR_SETS`/`DECOR_BUDGET`와 `npcportrait/_map.json`을 재사용하고 `campaign-assets.mjs` 배포 허용 목록을 유지한다.
-- 구 저장 키/계정 자산은 읽기 전용 보관. 새 캠페인의 저장·거래·랭킹·구매 대장은 `memory-oath-v1`로 분리한다.
+- 에셋 생성 금지. 사용자 Drive 소스의 원본 동작·보스·가구·수목·VFX를 재사용한다. 배포에서 원본 팩을 pruning하지 않는다. `campaign-assets.mjs`는 보존용 no-op이며 Vercel도 원본 런타임 팩을 포함한다. `DECOR_SETS`/`DECOR_BUDGET`, 원본 애니메이션 등록, `npcportrait/_map.json`을 재사용한다. 잘못 분류된 town atlas 조각/자판기를 다시 배치하지 않는다.
+- 구 저장 키/계정 자산은 읽기 전용 보관. 새 캠페인과 RPG 거점 저장을 각각 `memory-oath-v1`와 `sertz:memory-oath-v1:rpg:`로 격리한다. 구 스토리/DLC를 거점 경로로 되살리지 않는다. 원정 보스의 spawn/portal 기계는 서사 없는 훈련 퀘스트로 유지한다.
 - 새 캠페인 테스트: `npm run test:campaign`, 브라우저: `npm run test:campaign:browser`. 온라인 전투는 별도 Node 24 서버가 판정한다.

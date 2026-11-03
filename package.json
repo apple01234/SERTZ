@@ -20,7 +20,8 @@
     "db:reset": "prisma migrate reset",
     "test:campaign": "node --experimental-strip-types --import ./tests/ts-resolve-hook.mjs --test tests/campaign/*.test.mjs",
     "campaign:server": "node multiplayer/campaign/server.mjs",
-    "test:campaign:browser": "node scripts/playtest-campaign.mjs"
+    "test:campaign:browser": "node scripts/playtest-campaign.mjs",
+    "test:restoration:browser": "node scripts/playtest-restoration.mjs"
   },
   "dependencies": {
     "@capacitor-community/admob": "^8.1.0",

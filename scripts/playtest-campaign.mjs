@@ -220,7 +220,13 @@ try {
     const download = quotaPage.waitForEvent("download");
     await quotaPage.getByRole("button", { name: "새 기록 내보내기" }).click();
     assert.equal((await download).suggestedFilename(), "memory-oath-save.json");
-    assert.equal(await quotaPage.getByRole("alert").filter({ hasText: "기기 저장에 실패했습니다" }).count(), 1);
+    assert.equal(
+      await quotaPage
+        .getByRole("alert")
+        .filter({ hasText: "기기 저장에 실패했습니다" })
+        .count(),
+      1,
+    );
   } finally {
     await quotaContext.close();
   }
@@ -365,6 +371,25 @@ try {
     "PASS: chapter one, idempotent reward, legacy isolation, reload, real boss fight, portrait touch HUD; screenshots:",
     output,
   );
+} catch (error) {
+  for (const [i, page] of browser
+    .contexts()
+    .flatMap((c) => c.pages())
+    .entries()) {
+    await page
+      .screenshot({ path: `${output}/failure-${i}.png` })
+      .catch(() => {});
+    console.error(
+      "Failure state",
+      await page
+        .evaluate(() => ({
+          text: document.body.innerText.slice(-1800),
+          scene: window.__OATH_INSPECT__?.(),
+        }))
+        .catch(() => null),
+    );
+  }
+  throw error;
 } finally {
   await browser.close();
 }

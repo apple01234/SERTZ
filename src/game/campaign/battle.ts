@@ -1,5 +1,17 @@
 /** Pure fixed-step combat, shared by Phaser and the authoritative Socket.IO service. */
-import type { Family } from "./catalog.ts";
+import { CHAPTER_BY_ID, type Family } from "./catalog.ts";
+import { buildCampaignMap, canWalkAt, type CampaignMap } from "./world.ts";
+import { SKILLS } from "./skills.ts";
+const battleMaps = new Map<string, CampaignMap>();
+function terrain(chapterId: string) {
+  let map = battleMaps.get(chapterId);
+  if (!map) {
+    const c = CHAPTER_BY_ID[chapterId];
+    map = buildCampaignMap(c?.theme ?? "castle", c?.episode ?? 1, true);
+    battleMaps.set(chapterId, map);
+  }
+  return map;
+}
 export type Vec = { x: number; y: number };
 export type BattleInput = {
   x: number;
@@ -18,6 +30,10 @@ export type Fighter = Vec & {
   invulnerable: number;
   attackAt: number;
   skillAt: number;
+  castAt: number;
+  recoveryUntil: number;
+  skillReleasedAt: number;
+  skillConnected: boolean;
   dodgeAt: number;
   reviveProgress: number;
   deaths: number;
@@ -78,6 +94,10 @@ export function createBattle(
       invulnerable: 0,
       attackAt: 0,
       skillAt: 0,
+      castAt: 0,
+      recoveryUntil: 0,
+      skillReleasedAt: 0,
+      skillConnected: false,
       dodgeAt: 0,
       reviveProgress: 0,
       deaths: 0,
@@ -131,31 +151,54 @@ export function stepBattle(
     if (v.dodge && b.time >= p.dodgeAt) {
       p.dodgeAt = b.time + 1350;
       p.invulnerable = b.time + 420;
+      p.castAt = 0;
     }
-    const speed = b.time < p.invulnerable ? 430 : 195;
-    p.x = Math.max(40, Math.min(984, p.x + (x * speed * dt) / 1000));
-    p.y = Math.max(70, Math.min(590, p.y + (y * speed * dt) / 1000));
+    const speed = b.time < p.invulnerable ? 430 : p.castAt > b.time ? 110 : 195;
+    const map = terrain(b.chapterId);
+    const nextX = p.x + (x * speed * dt) / 1000,
+      nextY = p.y + (y * speed * dt) / 1000;
+    if (canWalkAt(map, { x: nextX, y: p.y })) p.x = nextX;
+    if (canWalkAt(map, { x: p.x, y: nextY })) p.y = nextY;
     const distance = Math.hypot(p.x - boss.x, p.y - boss.y),
       ranged = ["ranger", "mage", "pirate"].includes(p.family),
       range = ranged ? 380 : 130;
-    if (v.attack && b.time >= p.attackAt) {
+    const skill = SKILLS[p.family];
+    if (p.castAt > 0 && b.time >= p.castAt) {
+      p.castAt = 0;
+      p.recoveryUntil = b.time + skill.recovery;
+      p.skillReleasedAt = b.time;
+      p.skillConnected = distance < skill.range;
+      if (p.skillConnected) {
+        boss.hp = Math.max(
+          0,
+          boss.hp -
+            (b.time >= boss.weakFrom && b.time < boss.weakUntil ? 65 : 34),
+        );
+        p.lastHit = b.time;
+      }
+    }
+    if (
+      v.skill &&
+      !v.dodge &&
+      b.time >= p.skillAt &&
+      p.castAt === 0 &&
+      b.time >= p.recoveryUntil
+    ) {
+      p.skillAt = b.time + skill.cooldown;
+      p.castAt = b.time + skill.startup;
+    }
+    if (
+      v.attack &&
+      b.time >= p.attackAt &&
+      p.castAt === 0 &&
+      b.time >= p.recoveryUntil
+    ) {
       p.attackAt = b.time + (p.family === "thief" ? 240 : 350);
       if (distance < range) {
         boss.hp = Math.max(
           0,
           boss.hp -
             (b.time >= boss.weakFrom && b.time < boss.weakUntil ? 15 : 8),
-        );
-        p.lastHit = b.time;
-      }
-    }
-    if (v.skill && b.time >= p.skillAt) {
-      p.skillAt = b.time + 4500;
-      if (distance < (ranged ? 440 : 190)) {
-        boss.hp = Math.max(
-          0,
-          boss.hp -
-            (b.time >= boss.weakFrom && b.time < boss.weakUntil ? 65 : 34),
         );
         p.lastHit = b.time;
       }
@@ -265,7 +308,10 @@ export function stepBattle(
         p.hp - (b.mode === "story" ? 23 : h.kind === "seals" ? 55 : 35),
       );
       p.invulnerable = b.time + 500;
-      if (p.hp === 0) p.deaths++;
+      if (p.hp === 0) {
+        p.deaths++;
+        p.castAt = 0;
+      }
     }
   }
   b.hazards = b.hazards.filter((h) => h.until > b.time);

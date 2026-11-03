@@ -8,6 +8,9 @@ import {
 import {
   CAMPAIGN_ASSETS,
   FAMILY_ART,
+  ANIMATION_ASSETS,
+  BOSS_PREFIXES,
+  BOSS_SHEETS,
   WORLD_PALETTES,
   guideArt,
   bossArt,
@@ -19,7 +22,13 @@ import {
   type ChapterDefinition,
 } from "./catalog";
 import { createDefense, stepDefense, type Defense } from "./defense";
-import { DECOR_BUDGET, DECOR_SETS, type ObjTag } from "@/game/decorObjects";
+import {
+  BOSS_ATLAS,
+  registerBodyAnims,
+  registerBossAnims,
+} from "@/game/textures";
+import { ImpactFX } from "@/game/fx/ImpactFX";
+import { SKILLS } from "./skills";
 import {
   buildCampaignMap,
   canWalkAt,
@@ -41,6 +50,7 @@ export type CampaignViewState = {
   hint: string;
   bearing?: { label: string; direction: string; distance: number };
   defense?: { remaining: number; integrity: number };
+  bossIntro?: string;
 };
 export type SceneCommand = {
   progress?: CampaignProgress;
@@ -50,6 +60,8 @@ export type SceneCommand = {
   onlinePlayerId?: string;
   online?: boolean;
   reducedMotion?: boolean;
+  cinematic?: boolean;
+  skipBattleIntro?: boolean;
 };
 const TARGET_SPOTS = [
   { x: 310, y: 330 },
@@ -57,12 +69,6 @@ const TARGET_SPOTS = [
   { x: 765, y: 470 },
   { x: 400, y: 510 },
 ];
-const DECOR_BY_KEY = new Map(
-  Object.values(DECOR_SETS)
-    .flat()
-    .map((item) => [item.key, item]),
-);
-const ART_BY_KEY = new Map(CAMPAIGN_ASSETS.map((item) => [item.key, item]));
 export class CampaignScene extends Phaser.Scene {
   private defense: Defense | null = null;
   private defenseSprites: Phaser.GameObjects.Sprite[] = [];
@@ -97,6 +103,11 @@ export class CampaignScene extends Phaser.Scene {
   private damageLabel?: Phaser.GameObjects.Text;
   private lastBossHp = 0;
   private damageUntil = 0;
+  private cinematic = false;
+  private baseZoom = 1;
+  private freeAttackAt = 0;
+  private impact = new ImpactFX(this);
+  private battleIntroUntil = 0;
   constructor(progress: CampaignProgress) {
     super("MemoryOath");
     this.progress = progress;
@@ -111,11 +122,13 @@ export class CampaignScene extends Phaser.Scene {
         });
       else this.load.image(a.key, a.url);
     }
-    this.load.atlas(
-      "oath-skill",
-      "/assets/campaign/skill-sunburst.png",
-      "/assets/campaign/skill-sunburst.json",
-    );
+    for (const [key, file] of Object.entries(ANIMATION_ASSETS))
+      this.load.image(key, file.url);
+    for (const [key, file] of Object.entries(BOSS_SHEETS))
+      this.load.spritesheet(key, file.url, {
+        frameWidth: file.frameWidth,
+        frameHeight: file.frameHeight,
+      });
     this.load.on("loaderror", () =>
       EventBus.emit(
         "campaign:error",
@@ -128,27 +141,32 @@ export class CampaignScene extends Phaser.Scene {
     this.dynamicLayer = this.add.group();
     this.scenery = this.add.group();
     this.effects = this.add.graphics().setDepth(1000);
+    registerBodyAnims(this, Object.values(FAMILY_ART));
+    for (const prefix of BOSS_PREFIXES) registerBossAnims(this, prefix);
+    this.anims.create({
+      key: "oath-minion-walk",
+      frames: Array.from({ length: 4 }, (_, i) => ({ key: `minion_run${i}` })),
+      frameRate: 8,
+      repeat: -1,
+    });
+    this.anims.create({
+      key: "oath-skill",
+      frames: Array.from({ length: 6 }, (_, i) => ({ key: `slash${i}` })),
+      frameRate: 24,
+      repeat: 0,
+    });
     this.skillFx = this.add
-      .sprite(512, 230, "oath-skill", "sunburst 0")
+      .sprite(512, 230, "slash0")
       .setVisible(false)
       .setDepth(900)
-      .setScale(1);
-    if (!this.anims.exists("oath-skill"))
-      this.anims.create({
-        key: "oath-skill",
-        frames: this.anims.generateFrameNames("oath-skill", {
-          prefix: "sunburst ",
-          start: 0,
-          end: 119,
-        }),
-        frameRate: 60,
-        repeat: 0,
-      });
+      .setScale(2.4);
     this.skillFx.on("animationcomplete", () => this.skillFx.setVisible(false));
     this.player = this.add
-      .sprite(512, 485, `oath-${FAMILY_ART[this.progress.family]}`)
-      .setScale(0.8)
+      .sprite(512, 485, `${FAMILY_ART[this.progress.family]}_idle0`)
+      .setScale(1.5)
       .setDepth(800);
+    this.player.setData("bodyPrefix", FAMILY_ART[this.progress.family]);
+    this.player.play(`${FAMILY_ART[this.progress.family]}-idle`);
     const keyboard = this.input.keyboard!;
     this.controls = keyboard.addKeys({
       up: "W",
@@ -166,6 +184,7 @@ export class CampaignScene extends Phaser.Scene {
     }) as Record<string, Phaser.Input.Keyboard.Key>;
     keyboard.addCapture(["SPACE", "UP", "DOWN", "LEFT", "RIGHT"]);
     const command = (c: SceneCommand) => {
+      if (c.skipBattleIntro) this.finishBattleIntro();
       if (c.paused !== undefined) {
         this.pauseInput = c.paused;
         this.requestedPause = c.paused;
@@ -179,6 +198,27 @@ export class CampaignScene extends Phaser.Scene {
         }
       }
       if (c.reducedMotion !== undefined) this.reducedMotion = c.reducedMotion;
+      if (c.cinematic !== undefined && c.cinematic !== this.cinematic) {
+        this.cinematic = c.cinematic;
+        const camera = this.cameras.main;
+        camera.panEffect.reset();
+        camera.zoomEffect.reset();
+        if (this.cinematic) {
+          camera.stopFollow();
+          const target =
+            this.targetNodes.find(
+              (p) => Math.hypot(p.x - this.player.x, p.y - this.player.y) < 100,
+            ) ?? this.player;
+          camera.pan(target.x, target.y, this.reducedMotion ? 0 : 260);
+          camera.zoomTo(
+            this.baseZoom * (this.reducedMotion ? 1 : 1.12),
+            this.reducedMotion ? 0 : 260,
+          );
+        } else {
+          camera.setZoom(this.baseZoom);
+          camera.startFollow(this.player, true, 0.15, 0.15);
+        }
+      }
       if (c.progress) {
         const changed =
           c.progress.chapterId !== this.progress.chapterId ||
@@ -258,6 +298,7 @@ export class CampaignScene extends Phaser.Scene {
       camera.setZoom(
         width < 640 ? height / 640 : Math.min(width / 1024, height / 640),
       );
+      this.baseZoom = camera.zoom;
       camera.setBounds(0, 0, 1024, 640);
       camera.startFollow(this.player, true, 0.15, 0.15);
     };
@@ -267,19 +308,49 @@ export class CampaignScene extends Phaser.Scene {
     this.drawWorld();
     this.rebuildTargets();
     this.tintPlayer();
+    if (process.env.NODE_ENV !== "production") {
+      const host = window as unknown as { __OATH_INSPECT__?: () => unknown };
+      host.__OATH_INSPECT__ = () => ({
+        player: {
+          x: this.player.x,
+          y: this.player.y,
+          animation: this.player.anims.currentAnim?.key,
+          frame: this.player.texture.key,
+        },
+        objects: this.map.objects,
+        camera: {
+          zoom: this.cameras.main.zoom,
+          baseZoom: this.baseZoom,
+          cinematic: this.cinematic,
+        },
+        route: this.route.length,
+        goal: this.walkGoal,
+        paused: this.pauseInput,
+      });
+      this.events.once("shutdown", () => {
+        delete host.__OATH_INSPECT__;
+      });
+    }
     EventBus.emit("campaign:ready");
   }
   private tintPlayer() {
-    this.player.setTexture(`oath-${FAMILY_ART[this.progress.family]}`);
+    const prefix = FAMILY_ART[this.progress.family];
+    if (this.player.getData("bodyPrefix") !== prefix) {
+      this.player.setData("bodyPrefix", prefix);
+      this.player.play(`${prefix}-idle`);
+    }
     const cosmetic = COSMETICS.find((c) => c.id === this.progress.equipped);
     this.player.setTint(cosmetic?.color ?? 0xffffff);
   }
   /** The sole campaign scene-transition path: fade out, replace, always fade back in. */
   startTransition() {
+    this.finishBattleIntro();
     this.pauseInput = true;
     this.battle = null;
     this.walkGoal = null;
     this.route = [];
+    this.skillFx?.stop().setVisible(false);
+    this.effects.clear();
     const cam = this.cameras.main;
     if (!this.reducedMotion) cam.fadeOut(180, 8, 10, 23);
     this.time.delayedCall(this.reducedMotion ? 0 : 185, () => {
@@ -294,44 +365,15 @@ export class CampaignScene extends Phaser.Scene {
     this.worldLayer.removeAll(true);
     this.scenery.clear(true, true);
     const chapter = override ?? currentChapter(this.progress),
-      palette = WORLD_PALETTES[chapter.theme],
-      outdoor = ["garden", "forest", "snow", "desert"].includes(chapter.theme),
-      harbor = chapter.theme === "harbor";
-    const budget =
-      DECOR_BUDGET[harbor ? "town" : outdoor ? "forest" : "dungeon"];
-    const placed: Record<ObjTag, number> = {
-      big: 0,
-      wall: 0,
-      floor: 0,
-      small: 0,
-    };
+      palette = WORLD_PALETTES[chapter.theme];
     const prop = (key: string, x: number, y: number, scale = 2) => {
       const object = this.add.image(x, y, `oath-${key}`).setScale(scale);
-      const sourceKey = ART_BY_KEY.get(`oath-${key}`)
-        ?.url.split("/")
-        .pop()
-        ?.replace(/\.(png|webp)$/, "");
-      const decor = sourceKey ? DECOR_BY_KEY.get(sourceKey) : undefined;
-      if (decor) {
-        // Reuse WorldScene.placeDecor's budget and reserved-route rules on the smaller story map.
-        const blocked = [
-          ...TARGET_SPOTS,
-          { x: 512, y: 300 },
-          { x: 512, y: 485 },
-        ].some(
-          (p) =>
-            Math.hypot(p.x - x, p.y - y) <
-            Math.min(object.displayWidth, object.displayHeight) / 2 + 38,
-        );
-        if (blocked || placed[decor.tag] >= budget[decor.tag])
-          object.setVisible(false);
-        else placed[decor.tag]++;
-      }
-      const terrain =
+      if (
         key.startsWith("floor-") ||
         key.startsWith("wall-") ||
-        ["path", "water", "lava"].includes(key);
-      if (terrain) this.worldLayer.add(object);
+        ["path", "water", "lava"].includes(key)
+      )
+        this.worldLayer.add(object);
       else {
         object.setDepth(y + object.displayHeight / 2);
         this.scenery.add(object);
@@ -364,87 +406,8 @@ export class CampaignScene extends Phaser.Scene {
     trim.fillRect(0, 0, 1024, 112);
     trim.fillRect(0, 568, 1024, 72);
     this.worldLayer.add(trim);
-    if (outdoor) {
-      for (let i = 0; i < 18; i++) {
-        const x = 36 + i * 58;
-        if (i % 2 === 0)
-          prop(
-            i % 3 ? "garden-tree" : "garden-tree-gold",
-            x,
-            90 - (i % 2) * 18,
-            1.1,
-          );
-        if ((i < 7 || i > 10) && i % 2)
-          prop(i % 3 ? "garden-tree-gold" : "garden-tree", x, 585, 1);
-      }
-      prop("fountain", 512, 195, 2.7);
-      prop("town-house", 220, 170, 1.2);
-      prop("town-stall", 805, 180, 1.1);
-      for (const [x, y] of [
-        [130, 280],
-        [870, 330],
-        [200, 490],
-        [900, 505],
-      ])
-        prop("garden-tree", x, y, 1.3);
-      for (const x of [365, 655]) prop("garden-bush", x, 565, 1.4);
-      for (const x of [115, 910]) {
-        prop("statue", x, 345, 2.5);
-        prop("tree-gold", x, 455, 2.8);
-      }
-    } else if (harbor) {
-      prop("town-house", 265, 110, 1.3);
-      prop("town-stall", 790, 125, 1.3);
-      for (const x of [195, 825]) {
-        prop("town-barrel", x, 340, 1.4);
-        prop("town-barrel", x + 42, 520, 1);
-        prop("town-bench", x, 220, 1.1);
-      }
-    } else {
-      const wall =
-        chapter.theme === "machine"
-          ? "wall-machine"
-          : chapter.theme === "desert"
-            ? "wall-desert"
-            : chapter.theme === "ruin"
-              ? "wall-ruin"
-              : "wall-castle";
-      for (let x = 0; x < 1024; x += 48) {
-        prop(wall, x, 24, 1.5).setOrigin(0);
-        prop(wall, x, 72, 1.5).setOrigin(0).setTint(0xc5bdab);
-        prop(wall, x, 590, 1.5).setOrigin(0).setTint(0x777584);
-      }
-      for (const x of [24, 976])
-        for (let y = 120; y < 590; y += 48) prop(wall, x, y, 1.5).setOrigin(0);
-      if (chapter.theme === "castle") {
-        const carpet = this.add.graphics();
-        carpet.fillStyle(0x4a263a, 0.92);
-        carpet.fillRect(447, 127, 130, 420);
-        carpet.lineStyle(2, 0xc19c63, 0.8);
-        carpet.strokeRect(453, 133, 118, 408);
-        this.worldLayer.add(carpet);
-        for (const x of [172, 292, 732, 852]) {
-          prop("library-shelf", x, 175, 1.6);
-          prop("library-shelf", x, 535, 1.4);
-        }
-        for (const x of [190, 835]) {
-          prop("library-table", x, 365, 1);
-          prop("book", x - 25, 345, 0.7);
-          prop("library-candle", x + 22, 342, 0.6);
-        }
-      }
-      for (const x of [100, 920]) {
-        prop("pillar", x, 200, 2.7);
-        prop(chapter.theme === "ruin" ? "column" : "statue", x, 440, 2.5);
-      }
-      prop("door", 512, 90, 2.4);
-      if (chapter.theme === "machine") {
-        for (const x of [180, 840])
-          for (const y of [215, 485]) prop("armory", x, y, 3);
-      } else if (chapter.theme !== "castle") {
-        prop("altar", 512, 195, 2.5);
-      }
-    }
+    for (const object of this.map.objects)
+      prop(object.key, object.x, object.y, object.scale);
     const light = this.add.graphics();
     for (const x of [144, 880]) {
       for (const [radius, alpha] of [
@@ -478,9 +441,10 @@ export class CampaignScene extends Phaser.Scene {
           .sprite(
             point.x,
             point.y,
-            `oath-${bossArt(currentChapter(this.progress))}`,
+            BOSS_ATLAS[bossArt(currentChapter(this.progress))].key,
           )
-          .setScale(3.8)
+          .setScale(180 / BOSS_ATLAS[bossArt(currentChapter(this.progress))].fh)
+          .play(`${bossArt(currentChapter(this.progress))}-idle`)
           .setDepth(point.y + 60),
       );
       this.dynamicLayer.add(
@@ -556,6 +520,27 @@ export class CampaignScene extends Phaser.Scene {
     );
     this.player.setPosition(512, 470);
     this.accumulator = 0;
+    this.finishBattleIntro();
+    if (!this.reducedMotion) {
+      this.battleIntroUntil = this.time.now + 1400;
+      this.held = {};
+      this.input.keyboard?.resetKeys();
+      const camera = this.cameras.main;
+      camera.stopFollow();
+      camera.pan(512, 230, 240);
+      camera.zoomTo(this.baseZoom * 1.1, 240);
+    }
+  }
+  private finishBattleIntro() {
+    if (!this.battleIntroUntil) return;
+    this.battleIntroUntil = 0;
+    const camera = this.cameras.main;
+    camera.panEffect.reset();
+    camera.zoomEffect.reset();
+    camera.setZoom(this.baseZoom);
+    camera.startFollow(this.player, true, 0.15, 0.15);
+    this.held = {};
+    this.input.keyboard?.resetKeys();
   }
   private interact() {
     if (this.pauseInput || this.battle) return;
@@ -570,6 +555,13 @@ export class CampaignScene extends Phaser.Scene {
   }
   update(_time: number, delta: number) {
     if (!this.player) return;
+    if (
+      this.battleIntroUntil &&
+      (_time >= this.battleIntroUntil ||
+        Phaser.Input.Keyboard.JustDown(this.controls.interact))
+    )
+      this.finishBattleIntro();
+    const before = { x: this.player.x, y: this.player.y };
     const c = this.controls;
     const vector: BattleInput = {
       x:
@@ -593,7 +585,7 @@ export class CampaignScene extends Phaser.Scene {
           "campaign:input",
           this.pauseInput ? { x: 0, y: 0 } : vector,
         );
-      } else if (!this.pauseInput) {
+      } else if (!this.pauseInput && !this.battleIntroUntil) {
         this.accumulator += Math.min(delta, 100);
         while (this.accumulator >= STEP) {
           stepBattle(this.battle, { [this.progress.characterId]: vector });
@@ -624,7 +616,7 @@ export class CampaignScene extends Phaser.Scene {
         const dx = this.walkGoal.x - this.player.x,
           dy = this.walkGoal.y - this.player.y,
           d = Math.hypot(dx, dy);
-        if (d < 8) {
+        if (d < 2) {
           this.walkGoal = this.route.shift() ?? null;
           if (!this.walkGoal) this.interact();
         } else {
@@ -636,7 +628,15 @@ export class CampaignScene extends Phaser.Scene {
         this.route = [];
       }
       const length = Math.hypot(vector.x, vector.y) || 1,
-        scale = Math.min(delta, 50) * 0.2;
+        scale = Math.min(
+          Math.min(delta, 50) * 0.2,
+          this.walkGoal
+            ? Math.hypot(
+                this.walkGoal.x - this.player.x,
+                this.walkGoal.y - this.player.y,
+              )
+            : Infinity,
+        );
       const nextX = Phaser.Math.Clamp(
         this.player.x + (vector.x / Math.max(1, length)) * scale,
         60,
@@ -664,7 +664,8 @@ export class CampaignScene extends Phaser.Scene {
         let sprite = this.defenseSprites[i];
         if (!sprite) {
           sprite = this.add
-            .sprite(enemy.x, enemy.y, "oath-minion")
+            .sprite(enemy.x, enemy.y, "minion_idle0")
+            .play("oath-minion-walk")
             .setScale(2)
             .setDepth(780);
           this.defenseSprites.push(sprite);
@@ -693,12 +694,36 @@ export class CampaignScene extends Phaser.Scene {
         )
       : null;
     this.nearby = nearest?.label ?? null;
+    const me = this.battle?.players.find(
+      (p) =>
+        p.id ===
+        (this.online ? this.onlinePlayerId : this.progress.characterId),
+    );
+    if (
+      !this.pauseInput &&
+      !this.battle &&
+      (vector.attack || vector.skill) &&
+      _time - this.freeAttackAt > 350
+    )
+      this.freeAttackAt = _time;
+    this.player.anims.timeScale =
+      me && this.battle && this.battle.time < me.invulnerable ? 1.75 : 1;
+    this.animateActor(
+      this.player,
+      this.progress.family,
+      this.player.x - before.x,
+      this.player.y - before.y,
+      me ? me.attackAt + me.skillReleasedAt : this.freeAttackAt,
+    );
     this.player.setDepth(this.player.y + 32);
     if (_time - this.emitAt > 80) {
       this.emitAt = _time;
       EventBus.emit("campaign:view", {
         nearby: this.nearby,
         battle: this.battle ? structuredClone(this.battle) : null,
+        ...(this.battleIntroUntil
+          ? { bossIntro: currentChapter(this.progress).boss?.name }
+          : {}),
         ...(this.targetNodes[0] && !this.battle
           ? {
               bearing: {
@@ -735,6 +760,34 @@ export class CampaignScene extends Phaser.Scene {
       } satisfies CampaignViewState);
     }
   }
+  private animateActor(
+    sprite: Phaser.GameObjects.Sprite,
+    family: keyof typeof FAMILY_ART,
+    dx: number,
+    dy: number,
+    attackAt: number,
+  ) {
+    const prefix = FAMILY_ART[family];
+    if (Math.abs(dx) + Math.abs(dy) > 0.01) {
+      sprite.setData(
+        "facing",
+        Math.abs(dx) > Math.abs(dy) ? "side" : dy < 0 ? "up" : "down",
+      );
+      if (dx) sprite.setFlipX(dx > 0);
+    }
+    const facing = sprite.getData("facing") ?? "down";
+    if (attackAt > 0 && attackAt !== (sprite.getData("attackAt") ?? 0)) {
+      sprite.setData("attackAt", attackAt);
+      sprite.setData("attackUntil", this.time.now + 245);
+      sprite.play(`${prefix}-atk${facing === "side" ? "" : `-${facing}`}`);
+    } else if (this.time.now >= (sprite.getData("attackUntil") ?? 0)) {
+      const moving = Math.abs(dx) + Math.abs(dy) > 0.01;
+      sprite.play(
+        `${prefix}-${moving ? `walk${facing === "down" ? "" : `-${facing}`}` : "idle"}`,
+        true,
+      );
+    }
+  }
   private drawBattle() {
     const b = this.battle!;
     this.effects.clear();
@@ -748,9 +801,9 @@ export class CampaignScene extends Phaser.Scene {
         .sprite(
           b.boss.x,
           b.boss.y,
-          `oath-${bossArt(CHAPTER_BY_ID[b.chapterId])}`,
+          BOSS_ATLAS[bossArt(CHAPTER_BY_ID[b.chapterId])].key,
         )
-        .setScale(3.8)
+        .setScale(180 / BOSS_ATLAS[bossArt(currentChapter(this.progress))].fh)
         .setDepth(b.boss.y + 60);
       this.dynamicLayer.add(this.bossSprite);
       this.damageLabel = this.add
@@ -835,6 +888,15 @@ export class CampaignScene extends Phaser.Scene {
             ? 0
             : Math.max(0, 420 - (this.damageUntil - b.time)) / 24),
       );
+    const bossClip = b.hazards.some((h) => b.time >= h.at && b.time < h.until)
+      ? "atk"
+      : b.hazards.some((h) => b.time < h.at)
+        ? "sp1"
+        : "idle";
+    this.bossSprite?.play(
+      `${bossArt(CHAPTER_BY_ID[b.chapterId])}-${bossClip}`,
+      true,
+    );
     this.bossSprite
       ?.setPosition(b.boss.x, b.boss.y)
       .setTint(weak ? 0xffdf9b : 0xffffff);
@@ -848,11 +910,18 @@ export class CampaignScene extends Phaser.Scene {
         let sprite = this.remoteSprites.get(p.id);
         if (!sprite) {
           sprite = this.add
-            .sprite(p.x, p.y, `oath-${FAMILY_ART[p.family]}`)
-            .setScale(0.8);
+            .sprite(p.x, p.y, `${FAMILY_ART[p.family]}_idle0`)
+            .setScale(1.5);
           this.remoteSprites.set(p.id, sprite);
           this.dynamicLayer.add(sprite);
         }
+        this.animateActor(
+          sprite,
+          p.family,
+          p.x - sprite.x,
+          p.y - sprite.y,
+          p.attackAt + p.skillReleasedAt,
+        );
         sprite
           .setPosition(p.x, p.y)
           .setDepth(p.y + 32)
@@ -870,18 +939,36 @@ export class CampaignScene extends Phaser.Scene {
         this.effects.lineStyle(3, FAMILIES[p.family].color, 1);
         this.effects.lineBetween(p.x, p.y, b.boss.x, b.boss.y);
       }
+      if (p.castAt > b.time) {
+        const charge = 1 - (p.castAt - b.time) / SKILLS[p.family].startup;
+        this.effects.lineStyle(3, FAMILIES[p.family].color, 0.9);
+        this.effects.beginPath();
+        this.effects.arc(
+          p.x,
+          p.y + 24,
+          25,
+          -Math.PI / 2,
+          -Math.PI / 2 + Math.PI * 2 * charge,
+        );
+        this.effects.strokePath();
+      }
       if (
         p.id ===
           (this.online ? this.onlinePlayerId : this.progress.characterId) &&
-        p.skillAt > this.lastHit
+        p.skillReleasedAt > this.lastHit
       ) {
-        if (p.skillAt > 0 && !this.reducedMotion) {
+        if (p.skillReleasedAt > 0 && !this.reducedMotion) {
           this.skillFx
-            .setPosition(b.boss.x, b.boss.y)
+            .setPosition(
+              p.skillConnected ? b.boss.x : p.x,
+              p.skillConnected ? b.boss.y : p.y,
+            )
+            .setTint(FAMILIES[p.family].color)
             .setVisible(true)
             .play("oath-skill");
+          if (p.skillConnected) this.impact.shake(110, 0.003);
         }
-        this.lastHit = p.skillAt;
+        this.lastHit = p.skillReleasedAt;
       }
     }
   }

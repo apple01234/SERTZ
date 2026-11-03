@@ -243,5 +243,20 @@
         "Declarations and extracted resources; generated runtime events not executed"
       ]
     }
-  ]
+  ],
+  "followUp": {
+    "date": "2026-11-03",
+    "detailedReport": "REFERENCE_DEEP_ANALYSIS.md",
+    "structuredEvidence": "REFERENCE_DEEP_EVIDENCE.json",
+    "additionalGame": "JENNY_EVIDENCE.json",
+    "newSource": "https://drive.google.com/file/d/133Td4oi5ZXvgVRe4LlR10oTIgC9fTC1y/view",
+    "scope": "14 target distributions inventoried; selected static behavior traced; not 14 runtime playthroughs.",
+    "godotRecoveredScripts": {
+      "Nefarius": 77,
+      "FeatherPark": 78,
+      "JENNY": 800
+    },
+    "rpgMakerMapsParsed": 23,
+    "runtimeReferenceGamesExecuted": false
+  }
 }

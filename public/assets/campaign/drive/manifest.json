@@ -518,20 +518,20 @@
       "provenance": "Existing user-supplied project art; Tiny RPG Forest / Dungeon Tale / town props"
     },
     "town-house": {
-      "url": "/assets/objects/town/obj_town_house_blue.png",
-      "archivePath": "CERTZ/public/assets/objects/town/obj_town_house_blue.png",
-      "sha256": "71fd835ea9a6bac3e39d83525a7b8b431c009d579b5ad64b2878030bc534011e",
-      "width": 160,
-      "height": 112,
-      "provenance": "Existing user-supplied project art; Tiny RPG Forest / Dungeon Tale / town props"
+      "url": "/assets/house_a.webp",
+      "archivePath": "CERTZ/public/assets/house_a.webp",
+      "sha256": "ea87159dba609ee5399aa9bc38a1697c3c8595d68ab0b76558d55c741014ef69",
+      "width": 156,
+      "height": 194,
+      "provenance": "Intact original project medieval building; replaces misidentified atlas fragments, no image generation or modification"
     },
     "town-stall": {
-      "url": "/assets/objects/town/obj_town_stall_stripe.png",
-      "archivePath": "CERTZ/public/assets/objects/town/obj_town_stall_stripe.png",
-      "sha256": "9a88c4d6d873225a448fc49a1727cc587640ba6f4f681888425d63668e340563",
-      "width": 118,
-      "height": 58,
-      "provenance": "Existing user-supplied project art; Tiny RPG Forest / Dungeon Tale / town props"
+      "url": "/assets/house_b.webp",
+      "archivePath": "CERTZ/public/assets/house_b.webp",
+      "sha256": "74872507f4814da3afe151c28ba5c3b34bdba1344ec5fe15f003be72e90fea31",
+      "width": 156,
+      "height": 194,
+      "provenance": "Intact original project medieval building; replaces misidentified atlas fragments, no image generation or modification"
     },
     "town-barrel": {
       "url": "/assets/furn_barrel.webp",
@@ -672,6 +672,1138 @@
       "archivePath": "CERTZ/public/assets/audio/sfx_quest.ogg",
       "sha256": "e12eb95d0458675c2692831454ed09c7a680de966e7c705ce67a7e12560aa73a",
       "provenance": "Existing src/game/audio.ts track and mix configuration; public/assets/CREDITS.md"
+    }
+  },
+  "animationFiles": {
+    "jobm_guardian_idle0": {
+      "url": "/assets/jobm_guardian_idle0.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "f96e8a8d2e6ed4ef9c6805a43ce631a77dd43369e0dbfa5305fada3eee33ce39",
+      "archivePath": "CERTZ/public/assets/jobm_guardian_idle0.webp"
+    },
+    "jobm_guardian_idle1": {
+      "url": "/assets/jobm_guardian_idle1.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "9a029bcc2fe415e51c8a354dabc8cd0061e45acc05136b26170d85eb691cfd09",
+      "archivePath": "CERTZ/public/assets/jobm_guardian_idle1.webp"
+    },
+    "jobm_guardian_idle2": {
+      "url": "/assets/jobm_guardian_idle2.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "f96e8a8d2e6ed4ef9c6805a43ce631a77dd43369e0dbfa5305fada3eee33ce39",
+      "archivePath": "CERTZ/public/assets/jobm_guardian_idle2.webp"
+    },
+    "jobm_guardian_idle3": {
+      "url": "/assets/jobm_guardian_idle3.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "e9775dc6d644cc4210beea0b54cb9bf4353404e1df9e1c2f523c194997a6ae9c",
+      "archivePath": "CERTZ/public/assets/jobm_guardian_idle3.webp"
+    },
+    "jobm_guardian_walk0": {
+      "url": "/assets/jobm_guardian_walk0.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "fc44b4d9071a97b3f3199aeb07b710de8037bef8a6a22186c0efaba60913034c",
+      "archivePath": "CERTZ/public/assets/jobm_guardian_walk0.webp"
+    },
+    "jobm_guardian_walk1": {
+      "url": "/assets/jobm_guardian_walk1.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "a0906e6d0b12f6a296047c5538a5f513d5d770893fac735e00b460f37a196e49",
+      "archivePath": "CERTZ/public/assets/jobm_guardian_walk1.webp"
+    },
+    "jobm_guardian_walk2": {
+      "url": "/assets/jobm_guardian_walk2.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "7477bd9963b279142c2e026955c653916a755c24c3157ed03e5b6df7d3f7c836",
+      "archivePath": "CERTZ/public/assets/jobm_guardian_walk2.webp"
+    },
+    "jobm_guardian_walk3": {
+      "url": "/assets/jobm_guardian_walk3.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "95fe08c0f7590d722e8fd2f9dcd81d4ad9724db1e70c5a2bdad641320d39da47",
+      "archivePath": "CERTZ/public/assets/jobm_guardian_walk3.webp"
+    },
+    "jobm_guardian_walkside0": {
+      "url": "/assets/jobm_guardian_walkside0.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "263097695d1654ebd4ea8376bc45897f3a67c320f49342893e865aaf3c8bbd9f",
+      "archivePath": "CERTZ/public/assets/jobm_guardian_walkside0.webp"
+    },
+    "jobm_guardian_walkside1": {
+      "url": "/assets/jobm_guardian_walkside1.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "2c9c3f25677aa95b001df8cdd98978f11670b901d7b7019aff72d6eb59e75826",
+      "archivePath": "CERTZ/public/assets/jobm_guardian_walkside1.webp"
+    },
+    "jobm_guardian_walkside2": {
+      "url": "/assets/jobm_guardian_walkside2.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "b0558263ebf02eabb8ea1be1180c03c6670ca7be993d2f78aebd782e1d31220e",
+      "archivePath": "CERTZ/public/assets/jobm_guardian_walkside2.webp"
+    },
+    "jobm_guardian_walkside3": {
+      "url": "/assets/jobm_guardian_walkside3.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "6b05e51904164caa652ba74fc7e4fc6b39ca30111a01d11e585cc83cabb9887b",
+      "archivePath": "CERTZ/public/assets/jobm_guardian_walkside3.webp"
+    },
+    "jobm_guardian_walkup0": {
+      "url": "/assets/jobm_guardian_walkup0.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "afd0795be31f863a329389fc811038839b9202ad69ecd3f70a14fee82b8f723b",
+      "archivePath": "CERTZ/public/assets/jobm_guardian_walkup0.webp"
+    },
+    "jobm_guardian_walkup1": {
+      "url": "/assets/jobm_guardian_walkup1.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "644f516df0c5e6e7f96daaf94dd2974103dd8dc9d95e856c8c3ad5a3c7635015",
+      "archivePath": "CERTZ/public/assets/jobm_guardian_walkup1.webp"
+    },
+    "jobm_guardian_walkup2": {
+      "url": "/assets/jobm_guardian_walkup2.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "21179b1cc770284caa14e6c2234306b924f9d92c608008849a9a77d1b7d925f1",
+      "archivePath": "CERTZ/public/assets/jobm_guardian_walkup2.webp"
+    },
+    "jobm_guardian_walkup3": {
+      "url": "/assets/jobm_guardian_walkup3.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "ccd515898256db3258b10be892e96c482c2b395dc02479e669e306ec0bd9e6f8",
+      "archivePath": "CERTZ/public/assets/jobm_guardian_walkup3.webp"
+    },
+    "jobm_guardian_atk0": {
+      "url": "/assets/jobm_guardian_atk0.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "827df7ae757c41cf43522f01e8cfe5f9d7474de3106df5f96052edfd0b73c943",
+      "archivePath": "CERTZ/public/assets/jobm_guardian_atk0.webp"
+    },
+    "jobm_guardian_atk1": {
+      "url": "/assets/jobm_guardian_atk1.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "538a29ec48f67c7f1edd35ab3af6bbb2789327d1ed9faceedaa04727a461f3b8",
+      "archivePath": "CERTZ/public/assets/jobm_guardian_atk1.webp"
+    },
+    "jobm_guardian_atk2": {
+      "url": "/assets/jobm_guardian_atk2.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "2e473b3e10eeb1cedce9502cf49c5c60374d768e9ed46a834ae76d008872aba4",
+      "archivePath": "CERTZ/public/assets/jobm_guardian_atk2.webp"
+    },
+    "jobm_guardian_atk3": {
+      "url": "/assets/jobm_guardian_atk3.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "9a4cc66dde1d8720eb0ba9f725c3604e0fc18cdab1abe77fb6850ab04b40f094",
+      "archivePath": "CERTZ/public/assets/jobm_guardian_atk3.webp"
+    },
+    "jobm_guardian_atkdown0": {
+      "url": "/assets/jobm_guardian_atkdown0.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "40bf638385d6a105feacef18761016141b393281189af751bdb272da193856df",
+      "archivePath": "CERTZ/public/assets/jobm_guardian_atkdown0.webp"
+    },
+    "jobm_guardian_atkdown1": {
+      "url": "/assets/jobm_guardian_atkdown1.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "59b4510afd00502359ce9b799950989ea27ff4b8224e0f40a9ab20f66d5b17aa",
+      "archivePath": "CERTZ/public/assets/jobm_guardian_atkdown1.webp"
+    },
+    "jobm_guardian_atkdown2": {
+      "url": "/assets/jobm_guardian_atkdown2.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "5fe8ce3ef17910b5068c8fb3c37a0666c4b6bb4ef02a4043305e88bd6748bad4",
+      "archivePath": "CERTZ/public/assets/jobm_guardian_atkdown2.webp"
+    },
+    "jobm_guardian_atkdown3": {
+      "url": "/assets/jobm_guardian_atkdown3.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "cc5d8b26b41255562ff88fe546022515605024a532143541c4656bf77ad07270",
+      "archivePath": "CERTZ/public/assets/jobm_guardian_atkdown3.webp"
+    },
+    "jobm_guardian_atkup0": {
+      "url": "/assets/jobm_guardian_atkup0.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "91913af8f612559a9d42fa243e22775e9edf0569b817fbab055e96dc93af2bd6",
+      "archivePath": "CERTZ/public/assets/jobm_guardian_atkup0.webp"
+    },
+    "jobm_guardian_atkup1": {
+      "url": "/assets/jobm_guardian_atkup1.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "f2b70dae6ba4d90b1ec3e7f5d0a345bfeef474c6f95ef4bb6fa655591590d911",
+      "archivePath": "CERTZ/public/assets/jobm_guardian_atkup1.webp"
+    },
+    "jobm_guardian_atkup2": {
+      "url": "/assets/jobm_guardian_atkup2.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "7cb09e83ff6da1124cd80bc90487cb2d37369cbbae7d882d81bce87c08e3830f",
+      "archivePath": "CERTZ/public/assets/jobm_guardian_atkup2.webp"
+    },
+    "jobm_guardian_atkup3": {
+      "url": "/assets/jobm_guardian_atkup3.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "a6b6484358e62bb977a9597f89622e608bdb98844b207229355d378cd92e94ac",
+      "archivePath": "CERTZ/public/assets/jobm_guardian_atkup3.webp"
+    },
+    "jobm_sniper_idle0": {
+      "url": "/assets/jobm_sniper_idle0.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "e83029895a5855dd5939f3c5f1f03fe8f152bcfeead334420b6bd261ee1c98cb",
+      "archivePath": "CERTZ/public/assets/jobm_sniper_idle0.webp"
+    },
+    "jobm_sniper_idle1": {
+      "url": "/assets/jobm_sniper_idle1.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "8514010afdd06c2a4a322d728deccecf087a2f80f524d25a5dc2ae47e36fa92a",
+      "archivePath": "CERTZ/public/assets/jobm_sniper_idle1.webp"
+    },
+    "jobm_sniper_idle2": {
+      "url": "/assets/jobm_sniper_idle2.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "e83029895a5855dd5939f3c5f1f03fe8f152bcfeead334420b6bd261ee1c98cb",
+      "archivePath": "CERTZ/public/assets/jobm_sniper_idle2.webp"
+    },
+    "jobm_sniper_idle3": {
+      "url": "/assets/jobm_sniper_idle3.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "322f1190d3710594a29735779b9d30707e750f2c3208610039198a3d1594b16a",
+      "archivePath": "CERTZ/public/assets/jobm_sniper_idle3.webp"
+    },
+    "jobm_sniper_walk0": {
+      "url": "/assets/jobm_sniper_walk0.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "d5fe1a0a8ea8f997965e6b623d0f056ca92be16782673d9caff267c8d4566e46",
+      "archivePath": "CERTZ/public/assets/jobm_sniper_walk0.webp"
+    },
+    "jobm_sniper_walk1": {
+      "url": "/assets/jobm_sniper_walk1.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "0d6f15011e8d781b0de74c32eddac838bd723df4b567cc1e44745822fe72d6f3",
+      "archivePath": "CERTZ/public/assets/jobm_sniper_walk1.webp"
+    },
+    "jobm_sniper_walk2": {
+      "url": "/assets/jobm_sniper_walk2.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "159bbedbc6b4c6a4c3883f90da380e74eed2c672ad86754a438eb23162928485",
+      "archivePath": "CERTZ/public/assets/jobm_sniper_walk2.webp"
+    },
+    "jobm_sniper_walk3": {
+      "url": "/assets/jobm_sniper_walk3.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "c699c425cbf21cd4a54f58c0cddfe36496396750829b1503117efd9c3bd3d5df",
+      "archivePath": "CERTZ/public/assets/jobm_sniper_walk3.webp"
+    },
+    "jobm_sniper_walkside0": {
+      "url": "/assets/jobm_sniper_walkside0.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "0c6138cedc32b0bf3f75f0a86f972ddf991ee58f45597659b4262340919847bb",
+      "archivePath": "CERTZ/public/assets/jobm_sniper_walkside0.webp"
+    },
+    "jobm_sniper_walkside1": {
+      "url": "/assets/jobm_sniper_walkside1.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "d357250c71118602098caeecd51e8d3a6839b1c01fc3024b0fbf8a5ecf61256b",
+      "archivePath": "CERTZ/public/assets/jobm_sniper_walkside1.webp"
+    },
+    "jobm_sniper_walkside2": {
+      "url": "/assets/jobm_sniper_walkside2.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "1a9f17bb62ffe716a95d03dcd009da6048888531a591200f81466a631a16ea6b",
+      "archivePath": "CERTZ/public/assets/jobm_sniper_walkside2.webp"
+    },
+    "jobm_sniper_walkside3": {
+      "url": "/assets/jobm_sniper_walkside3.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "44ad48e95ecd839f1930f5f10bc948ae1e450f3255005895dcd8459933efe415",
+      "archivePath": "CERTZ/public/assets/jobm_sniper_walkside3.webp"
+    },
+    "jobm_sniper_walkup0": {
+      "url": "/assets/jobm_sniper_walkup0.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "3519ebe38fb6a54e4127c779d1d30fea9505471fbd34eb525d9e8bd2af232eaf",
+      "archivePath": "CERTZ/public/assets/jobm_sniper_walkup0.webp"
+    },
+    "jobm_sniper_walkup1": {
+      "url": "/assets/jobm_sniper_walkup1.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "1b15f18ca001cb67d260ad670717bccd2d7ef8ed269158287d00102abe00521c",
+      "archivePath": "CERTZ/public/assets/jobm_sniper_walkup1.webp"
+    },
+    "jobm_sniper_walkup2": {
+      "url": "/assets/jobm_sniper_walkup2.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "3383881d95721adbf240c7ec59e5db2c47e2ad533170ab4b016b5711b3280406",
+      "archivePath": "CERTZ/public/assets/jobm_sniper_walkup2.webp"
+    },
+    "jobm_sniper_walkup3": {
+      "url": "/assets/jobm_sniper_walkup3.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "868ca95be3ed4a861ad781ad97f44aa1d7ebf4049d296bb8803215fd45a90ae6",
+      "archivePath": "CERTZ/public/assets/jobm_sniper_walkup3.webp"
+    },
+    "jobm_sniper_atk0": {
+      "url": "/assets/jobm_sniper_atk0.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "bd0ad17a436bcab235bc26586c4fcb31161035c3da85aa49c14a3296eb2679c1",
+      "archivePath": "CERTZ/public/assets/jobm_sniper_atk0.webp"
+    },
+    "jobm_sniper_atk1": {
+      "url": "/assets/jobm_sniper_atk1.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "bdf0e408318530b3e4d8eeda2eccc48e3b168e839d8cf2dff394caa02be2855f",
+      "archivePath": "CERTZ/public/assets/jobm_sniper_atk1.webp"
+    },
+    "jobm_sniper_atk2": {
+      "url": "/assets/jobm_sniper_atk2.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "f5532c28eb47b7a4095d1644db4d2a482067a552e9c370c42748e4d866ccb4d3",
+      "archivePath": "CERTZ/public/assets/jobm_sniper_atk2.webp"
+    },
+    "jobm_sniper_atk3": {
+      "url": "/assets/jobm_sniper_atk3.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "7c44f736176a5a3d5221ca89c2a64eebe9a37e549e12bb40506e757d7d2c5575",
+      "archivePath": "CERTZ/public/assets/jobm_sniper_atk3.webp"
+    },
+    "jobm_sniper_atkdown0": {
+      "url": "/assets/jobm_sniper_atkdown0.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "d5e69f10282304840105c22c498a3edb18adbefe38518947eea01ba42fe7066e",
+      "archivePath": "CERTZ/public/assets/jobm_sniper_atkdown0.webp"
+    },
+    "jobm_sniper_atkdown1": {
+      "url": "/assets/jobm_sniper_atkdown1.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "a2459923176a3f78479c5db3db1f842d42e96cb5799f9312d0a46bdb26b0cb96",
+      "archivePath": "CERTZ/public/assets/jobm_sniper_atkdown1.webp"
+    },
+    "jobm_sniper_atkdown2": {
+      "url": "/assets/jobm_sniper_atkdown2.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "c79c12169379bf8fc0c4579a3a09f72c300b5b9fc66460d2478598986aeb3827",
+      "archivePath": "CERTZ/public/assets/jobm_sniper_atkdown2.webp"
+    },
+    "jobm_sniper_atkdown3": {
+      "url": "/assets/jobm_sniper_atkdown3.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "b28e533a70583644511a07335bac0d002086d383b8511f139385ba00af29622a",
+      "archivePath": "CERTZ/public/assets/jobm_sniper_atkdown3.webp"
+    },
+    "jobm_sniper_atkup0": {
+      "url": "/assets/jobm_sniper_atkup0.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "a6570eafc2a687bf94bddd4f333a1b63a3a7987bc4bf70e4b20dd073e311cca2",
+      "archivePath": "CERTZ/public/assets/jobm_sniper_atkup0.webp"
+    },
+    "jobm_sniper_atkup1": {
+      "url": "/assets/jobm_sniper_atkup1.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "4d41699df2fad45af56c745bf897849239b985087b519bf4bddfc6603afe70db",
+      "archivePath": "CERTZ/public/assets/jobm_sniper_atkup1.webp"
+    },
+    "jobm_sniper_atkup2": {
+      "url": "/assets/jobm_sniper_atkup2.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "79c0597746bf6d49dfe199c9e3f4b366e9006a92e6b5bf24608252cb3f6d4897",
+      "archivePath": "CERTZ/public/assets/jobm_sniper_atkup2.webp"
+    },
+    "jobm_sniper_atkup3": {
+      "url": "/assets/jobm_sniper_atkup3.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "a2daac0bc6c1882ddf21a4f7e44cce73723614f7deb7d6be679f384d277b6069",
+      "archivePath": "CERTZ/public/assets/jobm_sniper_atkup3.webp"
+    },
+    "jobm_archmage_idle0": {
+      "url": "/assets/jobm_archmage_idle0.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "5ba7082c9d4afa47b1c6ec9e7a69d19529b74ac984079a2e80c2ad0b5f9b83e7",
+      "archivePath": "CERTZ/public/assets/jobm_archmage_idle0.webp"
+    },
+    "jobm_archmage_idle1": {
+      "url": "/assets/jobm_archmage_idle1.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "7974fbb348c318ceaacc7824180a419da706bf7604728a7cc664b5cfb6e3b584",
+      "archivePath": "CERTZ/public/assets/jobm_archmage_idle1.webp"
+    },
+    "jobm_archmage_idle2": {
+      "url": "/assets/jobm_archmage_idle2.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "5ba7082c9d4afa47b1c6ec9e7a69d19529b74ac984079a2e80c2ad0b5f9b83e7",
+      "archivePath": "CERTZ/public/assets/jobm_archmage_idle2.webp"
+    },
+    "jobm_archmage_idle3": {
+      "url": "/assets/jobm_archmage_idle3.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "650f793f7f6d2a45562da327daa23bda285aab7b159e5b541686047299270873",
+      "archivePath": "CERTZ/public/assets/jobm_archmage_idle3.webp"
+    },
+    "jobm_archmage_walk0": {
+      "url": "/assets/jobm_archmage_walk0.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "ed36a56d795a94f47fb1e801eb542d2e3466fbd28a7e7f7783cd2051dbf5d259",
+      "archivePath": "CERTZ/public/assets/jobm_archmage_walk0.webp"
+    },
+    "jobm_archmage_walk1": {
+      "url": "/assets/jobm_archmage_walk1.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "e9ac8345b0f73c9b52800ad7818ea2e525a3b9825c3f5636708808974a9533b3",
+      "archivePath": "CERTZ/public/assets/jobm_archmage_walk1.webp"
+    },
+    "jobm_archmage_walk2": {
+      "url": "/assets/jobm_archmage_walk2.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "04c22e1a4e14f960dd1cccd832b5734fa3f6d315c81f06e9cff294f7b014df96",
+      "archivePath": "CERTZ/public/assets/jobm_archmage_walk2.webp"
+    },
+    "jobm_archmage_walk3": {
+      "url": "/assets/jobm_archmage_walk3.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "3479e3fbdcaa2e80aaf518cc03d10466987e8358be6b05946a0c08783a043567",
+      "archivePath": "CERTZ/public/assets/jobm_archmage_walk3.webp"
+    },
+    "jobm_archmage_walkside0": {
+      "url": "/assets/jobm_archmage_walkside0.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "1c4ebed6ec02ef3ea451abea9cc2fc5a404578c6e2bae8d0abfeee67b7cb8ddb",
+      "archivePath": "CERTZ/public/assets/jobm_archmage_walkside0.webp"
+    },
+    "jobm_archmage_walkside1": {
+      "url": "/assets/jobm_archmage_walkside1.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "8c3931e1b54e2ca57e098b68bb75eed4cb5f32283c4523f923d04bfc870d9ad1",
+      "archivePath": "CERTZ/public/assets/jobm_archmage_walkside1.webp"
+    },
+    "jobm_archmage_walkside2": {
+      "url": "/assets/jobm_archmage_walkside2.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "dbf84422f7bc27499056b420e7be19814704b6ca8bff1519b697c75f2f3a1949",
+      "archivePath": "CERTZ/public/assets/jobm_archmage_walkside2.webp"
+    },
+    "jobm_archmage_walkside3": {
+      "url": "/assets/jobm_archmage_walkside3.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "991da005d22f4a370063b67f2617cd2549934e3d584b16b96117922e842255b4",
+      "archivePath": "CERTZ/public/assets/jobm_archmage_walkside3.webp"
+    },
+    "jobm_archmage_walkup0": {
+      "url": "/assets/jobm_archmage_walkup0.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "fcaa11f7c571fa1b0ee42ddcbc6f8c236314e85ce38328c00476dc43c59b43b9",
+      "archivePath": "CERTZ/public/assets/jobm_archmage_walkup0.webp"
+    },
+    "jobm_archmage_walkup1": {
+      "url": "/assets/jobm_archmage_walkup1.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "ecc75c83164b7a86807e41839c85f1b178838d16623151c31ea2031298673447",
+      "archivePath": "CERTZ/public/assets/jobm_archmage_walkup1.webp"
+    },
+    "jobm_archmage_walkup2": {
+      "url": "/assets/jobm_archmage_walkup2.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "17618f6dfc8ecef241b45b5542e9ef382fe583e3db146a2dc48934c0aeb246af",
+      "archivePath": "CERTZ/public/assets/jobm_archmage_walkup2.webp"
+    },
+    "jobm_archmage_walkup3": {
+      "url": "/assets/jobm_archmage_walkup3.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "7e93983c6a3fc6e3ccebcff00f943f822e44506036f2342f99101af5c705e628",
+      "archivePath": "CERTZ/public/assets/jobm_archmage_walkup3.webp"
+    },
+    "jobm_archmage_atk0": {
+      "url": "/assets/jobm_archmage_atk0.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "b4da903b901c7492d3d0460b586a077f491630b80157e251af6d9cc895f49b53",
+      "archivePath": "CERTZ/public/assets/jobm_archmage_atk0.webp"
+    },
+    "jobm_archmage_atk1": {
+      "url": "/assets/jobm_archmage_atk1.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "0e99e41c7b2708f2e623ff529b116cf9d354afa140ccc61b1b5f7417d94a2b30",
+      "archivePath": "CERTZ/public/assets/jobm_archmage_atk1.webp"
+    },
+    "jobm_archmage_atk2": {
+      "url": "/assets/jobm_archmage_atk2.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "90a8d556fc47d944152fc9626b9986c1b79390caf514e493818eb819c026b89f",
+      "archivePath": "CERTZ/public/assets/jobm_archmage_atk2.webp"
+    },
+    "jobm_archmage_atk3": {
+      "url": "/assets/jobm_archmage_atk3.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "a16ea5b4236f8cf4c33ca9d9c174ccb8ec28fb3087cf2995a233aebe782af38c",
+      "archivePath": "CERTZ/public/assets/jobm_archmage_atk3.webp"
+    },
+    "jobm_archmage_atkdown0": {
+      "url": "/assets/jobm_archmage_atkdown0.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "2ac257c0531c682ba0db00c4b2ee3f0ce673e3ba1e368ca8f28043fef6ac5cc2",
+      "archivePath": "CERTZ/public/assets/jobm_archmage_atkdown0.webp"
+    },
+    "jobm_archmage_atkdown1": {
+      "url": "/assets/jobm_archmage_atkdown1.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "de711d8b233df4599bfac2ffc99c2809952c066913c6d8e6663928d98cf1144e",
+      "archivePath": "CERTZ/public/assets/jobm_archmage_atkdown1.webp"
+    },
+    "jobm_archmage_atkdown2": {
+      "url": "/assets/jobm_archmage_atkdown2.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "ba8f34056cceff59199a015641aff2112041c4992e5b0b01ff85dd7d04b0631e",
+      "archivePath": "CERTZ/public/assets/jobm_archmage_atkdown2.webp"
+    },
+    "jobm_archmage_atkdown3": {
+      "url": "/assets/jobm_archmage_atkdown3.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "ca2e8608f5df5db0ac1bf87295156fb1d3fc6af42feb0ef03230145bf900a8fd",
+      "archivePath": "CERTZ/public/assets/jobm_archmage_atkdown3.webp"
+    },
+    "jobm_archmage_atkup0": {
+      "url": "/assets/jobm_archmage_atkup0.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "9975bb4e435651a407b2878c06567bd553400288497cf46e632e56f65a3f3d5d",
+      "archivePath": "CERTZ/public/assets/jobm_archmage_atkup0.webp"
+    },
+    "jobm_archmage_atkup1": {
+      "url": "/assets/jobm_archmage_atkup1.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "4a1e6620c3771ffc70b675c49a8c4cda2a3e9a4b2713251ab2923dfc192d3cfe",
+      "archivePath": "CERTZ/public/assets/jobm_archmage_atkup1.webp"
+    },
+    "jobm_archmage_atkup2": {
+      "url": "/assets/jobm_archmage_atkup2.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "30eb0955a39ea2e1e7177dad33fc41f43520a3f9a8de5226974a05d4356d92be",
+      "archivePath": "CERTZ/public/assets/jobm_archmage_atkup2.webp"
+    },
+    "jobm_archmage_atkup3": {
+      "url": "/assets/jobm_archmage_atkup3.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "22ab99ac028aadc07eb838cc922ee60af1301f6ef00e20c94ca3bcbed3fc3cf0",
+      "archivePath": "CERTZ/public/assets/jobm_archmage_atkup3.webp"
+    },
+    "jobm_nightblade_idle0": {
+      "url": "/assets/jobm_nightblade_idle0.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "34d577cdb96d6aad0cbd853c0a87170e1f0c6be4091cc71954232885ab91be1e",
+      "archivePath": "CERTZ/public/assets/jobm_nightblade_idle0.webp"
+    },
+    "jobm_nightblade_idle1": {
+      "url": "/assets/jobm_nightblade_idle1.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "cbc588f7e9b00e991b74fbfbb282d2e6f0485917fa6877fd6bd8d49e289e6183",
+      "archivePath": "CERTZ/public/assets/jobm_nightblade_idle1.webp"
+    },
+    "jobm_nightblade_idle2": {
+      "url": "/assets/jobm_nightblade_idle2.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "34d577cdb96d6aad0cbd853c0a87170e1f0c6be4091cc71954232885ab91be1e",
+      "archivePath": "CERTZ/public/assets/jobm_nightblade_idle2.webp"
+    },
+    "jobm_nightblade_idle3": {
+      "url": "/assets/jobm_nightblade_idle3.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "ba43b70ce7df4a3f4f219e629ca6b4c2cfcf4dcb0dafc1be650f35d1c6f4c5e8",
+      "archivePath": "CERTZ/public/assets/jobm_nightblade_idle3.webp"
+    },
+    "jobm_nightblade_walk0": {
+      "url": "/assets/jobm_nightblade_walk0.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "f18a6f971e8526487ea56db1e4467856f9d15d5bc686102cff1d6beff6d94b75",
+      "archivePath": "CERTZ/public/assets/jobm_nightblade_walk0.webp"
+    },
+    "jobm_nightblade_walk1": {
+      "url": "/assets/jobm_nightblade_walk1.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "d59aab1db03e2975b1faf4affb58ff0c69f0c5070a9e74e340fdf9f47a649380",
+      "archivePath": "CERTZ/public/assets/jobm_nightblade_walk1.webp"
+    },
+    "jobm_nightblade_walk2": {
+      "url": "/assets/jobm_nightblade_walk2.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "92f12e8675dc7fd42b8550a1b9dce7918c98442edef55f7404db76dc9e5f65c1",
+      "archivePath": "CERTZ/public/assets/jobm_nightblade_walk2.webp"
+    },
+    "jobm_nightblade_walk3": {
+      "url": "/assets/jobm_nightblade_walk3.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "f35f7bffb57be28e262064873c0f353e1fa1b2759e3eea15a919b8c73c4fdd41",
+      "archivePath": "CERTZ/public/assets/jobm_nightblade_walk3.webp"
+    },
+    "jobm_nightblade_walkside0": {
+      "url": "/assets/jobm_nightblade_walkside0.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "bc06a74d1b991e2639a0c6586c366577356c04a6ca8743aad919cf97b69a7f72",
+      "archivePath": "CERTZ/public/assets/jobm_nightblade_walkside0.webp"
+    },
+    "jobm_nightblade_walkside1": {
+      "url": "/assets/jobm_nightblade_walkside1.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "4197281c4480b6e90d531ee3da0c90e836e6c31bde8c65f9137106413c48bced",
+      "archivePath": "CERTZ/public/assets/jobm_nightblade_walkside1.webp"
+    },
+    "jobm_nightblade_walkside2": {
+      "url": "/assets/jobm_nightblade_walkside2.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "a13373075fc34e75f1580233f700d7a7adc2be0ca4bb78e86dfeb7cae3303865",
+      "archivePath": "CERTZ/public/assets/jobm_nightblade_walkside2.webp"
+    },
+    "jobm_nightblade_walkside3": {
+      "url": "/assets/jobm_nightblade_walkside3.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "9d01d08af76f3fc7396b571ba5d3d8372903dfd62a908d1a94856f5f9b93a82a",
+      "archivePath": "CERTZ/public/assets/jobm_nightblade_walkside3.webp"
+    },
+    "jobm_nightblade_walkup0": {
+      "url": "/assets/jobm_nightblade_walkup0.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "dea0c2b3076a1d895d56df3fba6a346354b57ad567b8002388489ceb51c2ff15",
+      "archivePath": "CERTZ/public/assets/jobm_nightblade_walkup0.webp"
+    },
+    "jobm_nightblade_walkup1": {
+      "url": "/assets/jobm_nightblade_walkup1.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "3e036336f2ab50007a894deb3a11584640bd617902a2f2ca52f3bf6aee24481f",
+      "archivePath": "CERTZ/public/assets/jobm_nightblade_walkup1.webp"
+    },
+    "jobm_nightblade_walkup2": {
+      "url": "/assets/jobm_nightblade_walkup2.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "e924ebc563b6b86b829cda8e574de4eda1a8c70c8821edb5b7c1ce41085f7ea5",
+      "archivePath": "CERTZ/public/assets/jobm_nightblade_walkup2.webp"
+    },
+    "jobm_nightblade_walkup3": {
+      "url": "/assets/jobm_nightblade_walkup3.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "4d6a01cbe2f6236817b8a3fa32bdb66da28267c8c5718444807ac4fbf6690fad",
+      "archivePath": "CERTZ/public/assets/jobm_nightblade_walkup3.webp"
+    },
+    "jobm_nightblade_atk0": {
+      "url": "/assets/jobm_nightblade_atk0.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "458a647b2d7acc4bbd63208d29d0d6218898e2920a14a696fba5c98c93c496e0",
+      "archivePath": "CERTZ/public/assets/jobm_nightblade_atk0.webp"
+    },
+    "jobm_nightblade_atk1": {
+      "url": "/assets/jobm_nightblade_atk1.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "9b966dd0953a8480a2c8e1163e3fe3b948d017503b51d0b660e90a6d75b55abf",
+      "archivePath": "CERTZ/public/assets/jobm_nightblade_atk1.webp"
+    },
+    "jobm_nightblade_atk2": {
+      "url": "/assets/jobm_nightblade_atk2.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "d06043c7d31a697f481ce992fcc7cbb73fadc5989c41336be97d99a9afe5cefa",
+      "archivePath": "CERTZ/public/assets/jobm_nightblade_atk2.webp"
+    },
+    "jobm_nightblade_atk3": {
+      "url": "/assets/jobm_nightblade_atk3.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "30572141ac68f32b1b4cf76185a4fec904de4668c750e3690279a1583fe11758",
+      "archivePath": "CERTZ/public/assets/jobm_nightblade_atk3.webp"
+    },
+    "jobm_nightblade_atkdown0": {
+      "url": "/assets/jobm_nightblade_atkdown0.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "d4bcf6f6c1c3725dd1f9dc1035b7226ba97b4f78376acac7bd4f4aac3a186481",
+      "archivePath": "CERTZ/public/assets/jobm_nightblade_atkdown0.webp"
+    },
+    "jobm_nightblade_atkdown1": {
+      "url": "/assets/jobm_nightblade_atkdown1.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "b7a7d72fdd8fbd3596a532b113e962e751a0cbfbf8f0586a5b5c38cb1a4d0961",
+      "archivePath": "CERTZ/public/assets/jobm_nightblade_atkdown1.webp"
+    },
+    "jobm_nightblade_atkdown2": {
+      "url": "/assets/jobm_nightblade_atkdown2.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "09d9da8c031101e791777a1e9aa251e2b82bd22e0d01f32d8d948fdb00a608d0",
+      "archivePath": "CERTZ/public/assets/jobm_nightblade_atkdown2.webp"
+    },
+    "jobm_nightblade_atkdown3": {
+      "url": "/assets/jobm_nightblade_atkdown3.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "a0775593f20cb70ddf5f1e81f8ff7cbadef9054fbf89daf34372a82b58c8f4cf",
+      "archivePath": "CERTZ/public/assets/jobm_nightblade_atkdown3.webp"
+    },
+    "jobm_nightblade_atkup0": {
+      "url": "/assets/jobm_nightblade_atkup0.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "0de63d711104be5a641f8978a499962b462ad8f5063547cda81e0ae62c6a1f4e",
+      "archivePath": "CERTZ/public/assets/jobm_nightblade_atkup0.webp"
+    },
+    "jobm_nightblade_atkup1": {
+      "url": "/assets/jobm_nightblade_atkup1.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "c4a5e84e12b3fb0d9f549a71f70974a8c20deafa150921742255fb99a0edcf5b",
+      "archivePath": "CERTZ/public/assets/jobm_nightblade_atkup1.webp"
+    },
+    "jobm_nightblade_atkup2": {
+      "url": "/assets/jobm_nightblade_atkup2.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "ba0fb0f35ce62c0ebb0d828d148e0f8070d48a76630a4199f79ea9f7517ce072",
+      "archivePath": "CERTZ/public/assets/jobm_nightblade_atkup2.webp"
+    },
+    "jobm_nightblade_atkup3": {
+      "url": "/assets/jobm_nightblade_atkup3.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "5bc5a528cab452cd52a0e0bc72c5a083f3dcc2e4fabdd5061abb7447cdd72cf1",
+      "archivePath": "CERTZ/public/assets/jobm_nightblade_atkup3.webp"
+    },
+    "jobm_stormcaptain_idle0": {
+      "url": "/assets/jobm_stormcaptain_idle0.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "1b1603fc4057d63905d153108fd3bd2d8d6f48cc9947c9801f8ea0701706978b",
+      "archivePath": "CERTZ/public/assets/jobm_stormcaptain_idle0.webp"
+    },
+    "jobm_stormcaptain_idle1": {
+      "url": "/assets/jobm_stormcaptain_idle1.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "3255c17f5aef2281e83dd0eba03bd9502e8d506101f1bf6bb20a7b6d62678f68",
+      "archivePath": "CERTZ/public/assets/jobm_stormcaptain_idle1.webp"
+    },
+    "jobm_stormcaptain_idle2": {
+      "url": "/assets/jobm_stormcaptain_idle2.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "1b1603fc4057d63905d153108fd3bd2d8d6f48cc9947c9801f8ea0701706978b",
+      "archivePath": "CERTZ/public/assets/jobm_stormcaptain_idle2.webp"
+    },
+    "jobm_stormcaptain_idle3": {
+      "url": "/assets/jobm_stormcaptain_idle3.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "9eddaf701287e0d447498b49134f1760f96bc5dd33f025259afb8390cb47dae7",
+      "archivePath": "CERTZ/public/assets/jobm_stormcaptain_idle3.webp"
+    },
+    "jobm_stormcaptain_walk0": {
+      "url": "/assets/jobm_stormcaptain_walk0.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "ef2f2b1eb4eac5b30ec7444f6e7055d0e92f037bc94192fbcb6be6cb34b0bcf7",
+      "archivePath": "CERTZ/public/assets/jobm_stormcaptain_walk0.webp"
+    },
+    "jobm_stormcaptain_walk1": {
+      "url": "/assets/jobm_stormcaptain_walk1.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "dccc09e3de0532d81ae280a582df8a7a37a5b0a541933c6d489604196aab508d",
+      "archivePath": "CERTZ/public/assets/jobm_stormcaptain_walk1.webp"
+    },
+    "jobm_stormcaptain_walk2": {
+      "url": "/assets/jobm_stormcaptain_walk2.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "f04e99661f05ce9eeb5b37bd172fb553536a39bb60e468a7c763946609a4ecd6",
+      "archivePath": "CERTZ/public/assets/jobm_stormcaptain_walk2.webp"
+    },
+    "jobm_stormcaptain_walk3": {
+      "url": "/assets/jobm_stormcaptain_walk3.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "90cb8733a5c6e71d946b98f49d34885e65387be311160af005ca16d4fbb0d475",
+      "archivePath": "CERTZ/public/assets/jobm_stormcaptain_walk3.webp"
+    },
+    "jobm_stormcaptain_walkside0": {
+      "url": "/assets/jobm_stormcaptain_walkside0.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "e6290e80321323bfeb4261dc2ce176c410f7349c0b8067f7ee745b3452559a05",
+      "archivePath": "CERTZ/public/assets/jobm_stormcaptain_walkside0.webp"
+    },
+    "jobm_stormcaptain_walkside1": {
+      "url": "/assets/jobm_stormcaptain_walkside1.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "7822cf3476fadedf5e08eb897974ff5f2a3eb2f82aa402a1c034bc936cac7704",
+      "archivePath": "CERTZ/public/assets/jobm_stormcaptain_walkside1.webp"
+    },
+    "jobm_stormcaptain_walkside2": {
+      "url": "/assets/jobm_stormcaptain_walkside2.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "f87653ac899b822256245c8e40d3a79b160e9464a2e200f5c0b354569637c4e8",
+      "archivePath": "CERTZ/public/assets/jobm_stormcaptain_walkside2.webp"
+    },
+    "jobm_stormcaptain_walkside3": {
+      "url": "/assets/jobm_stormcaptain_walkside3.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "6531c627c187f95cba7080e5515f8dc11f39b827ceb95bdaae262c88c26a3dc2",
+      "archivePath": "CERTZ/public/assets/jobm_stormcaptain_walkside3.webp"
+    },
+    "jobm_stormcaptain_walkup0": {
+      "url": "/assets/jobm_stormcaptain_walkup0.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "7b32627c03f32787c7311aef58c27b392b4515d2a1f2f7d8d14ae756a6e93ef4",
+      "archivePath": "CERTZ/public/assets/jobm_stormcaptain_walkup0.webp"
+    },
+    "jobm_stormcaptain_walkup1": {
+      "url": "/assets/jobm_stormcaptain_walkup1.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "8315ea79b12ba23493dbd554c84dc3a55eac7067e8cd809c6cba3c3972e9c6ca",
+      "archivePath": "CERTZ/public/assets/jobm_stormcaptain_walkup1.webp"
+    },
+    "jobm_stormcaptain_walkup2": {
+      "url": "/assets/jobm_stormcaptain_walkup2.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "d7aafe4e302fbdbb6b02217c957700ac96da80e0347863fc16aac1261c914522",
+      "archivePath": "CERTZ/public/assets/jobm_stormcaptain_walkup2.webp"
+    },
+    "jobm_stormcaptain_walkup3": {
+      "url": "/assets/jobm_stormcaptain_walkup3.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "d007eaced79a40afea7953a614342694c50a54a6b50da37eefadc03de26fce94",
+      "archivePath": "CERTZ/public/assets/jobm_stormcaptain_walkup3.webp"
+    },
+    "jobm_stormcaptain_atk0": {
+      "url": "/assets/jobm_stormcaptain_atk0.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "e80c11230e53d1d1cbdd64493482d9f4240f05f30e970d596295e406161fbd33",
+      "archivePath": "CERTZ/public/assets/jobm_stormcaptain_atk0.webp"
+    },
+    "jobm_stormcaptain_atk1": {
+      "url": "/assets/jobm_stormcaptain_atk1.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "9042ed0c16b5ab347218281099d9446a999338ae828882bd60808f5428772c5c",
+      "archivePath": "CERTZ/public/assets/jobm_stormcaptain_atk1.webp"
+    },
+    "jobm_stormcaptain_atk2": {
+      "url": "/assets/jobm_stormcaptain_atk2.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "2c4940f8ee932b2204bb80f6521288f7ca696fdda01d149e251f26fffd9cde8d",
+      "archivePath": "CERTZ/public/assets/jobm_stormcaptain_atk2.webp"
+    },
+    "jobm_stormcaptain_atk3": {
+      "url": "/assets/jobm_stormcaptain_atk3.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "5607eea0ce914c22c9386298dc8f4b9b0ee80d228ba1697d87633393f7791c84",
+      "archivePath": "CERTZ/public/assets/jobm_stormcaptain_atk3.webp"
+    },
+    "jobm_stormcaptain_atkdown0": {
+      "url": "/assets/jobm_stormcaptain_atkdown0.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "b42881d29889fbf74802fe0dec72e8c6dd77dab658320786d41fa2fa81bd257e",
+      "archivePath": "CERTZ/public/assets/jobm_stormcaptain_atkdown0.webp"
+    },
+    "jobm_stormcaptain_atkdown1": {
+      "url": "/assets/jobm_stormcaptain_atkdown1.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "c33b8ea5871c105dab78bccc4c06962768ac246111a8185c8cc9895e134a75db",
+      "archivePath": "CERTZ/public/assets/jobm_stormcaptain_atkdown1.webp"
+    },
+    "jobm_stormcaptain_atkdown2": {
+      "url": "/assets/jobm_stormcaptain_atkdown2.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "62a3ddca73ea5b97e9a11b5f974e4147b3be7d460ed14ab5cd43acce08e64ef9",
+      "archivePath": "CERTZ/public/assets/jobm_stormcaptain_atkdown2.webp"
+    },
+    "jobm_stormcaptain_atkdown3": {
+      "url": "/assets/jobm_stormcaptain_atkdown3.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "786636f92fa744adc2a1bcc0d4553bf3ab7b9bc6ca82117d5f3d18b17341e1fc",
+      "archivePath": "CERTZ/public/assets/jobm_stormcaptain_atkdown3.webp"
+    },
+    "jobm_stormcaptain_atkup0": {
+      "url": "/assets/jobm_stormcaptain_atkup0.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "52165b4712837e542f9365695e4f6b2e31f934baf604e310b74055d14ac8f4b9",
+      "archivePath": "CERTZ/public/assets/jobm_stormcaptain_atkup0.webp"
+    },
+    "jobm_stormcaptain_atkup1": {
+      "url": "/assets/jobm_stormcaptain_atkup1.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "f20b9136b7b7b15a04806b7a5238bfb1a3e910b63fdfe1a82a33fc4f44594c62",
+      "archivePath": "CERTZ/public/assets/jobm_stormcaptain_atkup1.webp"
+    },
+    "jobm_stormcaptain_atkup2": {
+      "url": "/assets/jobm_stormcaptain_atkup2.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "3da2cff4b6416586f014a6f07e8c6648acf1232dd991b5382cc366f0868db3c3",
+      "archivePath": "CERTZ/public/assets/jobm_stormcaptain_atkup2.webp"
+    },
+    "jobm_stormcaptain_atkup3": {
+      "url": "/assets/jobm_stormcaptain_atkup3.webp",
+      "width": 96,
+      "height": 64,
+      "sha256": "7bce0b083ec893dbd30d6843add1379bc23fb217d504f1be0040cbdc975199e3",
+      "archivePath": "CERTZ/public/assets/jobm_stormcaptain_atkup3.webp"
+    },
+    "minion_idle0": {
+      "url": "/assets/minion_idle0.webp",
+      "width": 32,
+      "height": 32,
+      "sha256": "987b3d1910a120dfa37720d0532d4a7f0239f4797ec76510ed685b0a181ff871",
+      "archivePath": "CERTZ/public/assets/minion_idle0.webp"
+    },
+    "minion_idle1": {
+      "url": "/assets/minion_idle1.webp",
+      "width": 32,
+      "height": 32,
+      "sha256": "2258af025191a735ced33830e9a48434fccc0599a596cd921c7e58a57c819c28",
+      "archivePath": "CERTZ/public/assets/minion_idle1.webp"
+    },
+    "minion_run0": {
+      "url": "/assets/minion_run0.webp",
+      "width": 32,
+      "height": 32,
+      "sha256": "987b3d1910a120dfa37720d0532d4a7f0239f4797ec76510ed685b0a181ff871",
+      "archivePath": "CERTZ/public/assets/minion_run0.webp"
+    },
+    "minion_run1": {
+      "url": "/assets/minion_run1.webp",
+      "width": 32,
+      "height": 32,
+      "sha256": "a21e223eb9964ab1d5c17bd6ebf257ab8e89c696f755ecd51ffbc63dca7f65b4",
+      "archivePath": "CERTZ/public/assets/minion_run1.webp"
+    },
+    "minion_run2": {
+      "url": "/assets/minion_run2.webp",
+      "width": 32,
+      "height": 32,
+      "sha256": "987b3d1910a120dfa37720d0532d4a7f0239f4797ec76510ed685b0a181ff871",
+      "archivePath": "CERTZ/public/assets/minion_run2.webp"
+    },
+    "minion_run3": {
+      "url": "/assets/minion_run3.webp",
+      "width": 32,
+      "height": 32,
+      "sha256": "2258af025191a735ced33830e9a48434fccc0599a596cd921c7e58a57c819c28",
+      "archivePath": "CERTZ/public/assets/minion_run3.webp"
+    },
+    "slash0": {
+      "url": "/assets/slash0.webp",
+      "width": 64,
+      "height": 76,
+      "sha256": "fc37e585094e5b195f5f54695c62545cde806a699f50bcd4b29f6e7e2624acc5",
+      "archivePath": "CERTZ/public/assets/slash0.webp"
+    },
+    "slash1": {
+      "url": "/assets/slash1.webp",
+      "width": 64,
+      "height": 76,
+      "sha256": "f8bdea7452247fe471dbe9a624e4491f6a25c11a1d343ba074a6881bfbb67e84",
+      "archivePath": "CERTZ/public/assets/slash1.webp"
+    },
+    "slash2": {
+      "url": "/assets/slash2.webp",
+      "width": 64,
+      "height": 76,
+      "sha256": "acc8b6b400beedf51f6875a9b181619b6189601dd071d357b682dee752f80d80",
+      "archivePath": "CERTZ/public/assets/slash2.webp"
+    },
+    "slash3": {
+      "url": "/assets/slash3.webp",
+      "width": 64,
+      "height": 76,
+      "sha256": "74d8cd3ff04e9f1d4987430a390c03cd98abc92ee1ff6e289cc676335e081e6a",
+      "archivePath": "CERTZ/public/assets/slash3.webp"
+    },
+    "slash4": {
+      "url": "/assets/slash4.webp",
+      "width": 64,
+      "height": 76,
+      "sha256": "c399a434132f2bf2fdda78027bc5c29fd15866b2f35f1947616e0ecd6a837d02",
+      "archivePath": "CERTZ/public/assets/slash4.webp"
+    },
+    "slash5": {
+      "url": "/assets/slash5.webp",
+      "width": 64,
+      "height": 76,
+      "sha256": "475a92faeff523481c11c2e5d954512e5b49397e74d3c3b72b3ae3a615389f4c",
+      "archivePath": "CERTZ/public/assets/slash5.webp"
+    }
+  },
+  "animationProvenance": "Existing user-supplied frames. No new or synthesized artwork.",
+  "bossSheets": {
+    "atl_boss": {
+      "url": "/assets/boss_golem.png",
+      "archivePath": "CERTZ/public/assets/boss_golem.png",
+      "sha256": "38112a783356b5846ca975016c24898d06665ec4d6b308514699d68d2e4ab65d",
+      "width": 1000,
+      "height": 700,
+      "frameWidth": 100,
+      "frameHeight": 100
+    },
+    "atl_boss2": {
+      "url": "/assets/boss_skeleton.png",
+      "archivePath": "CERTZ/public/assets/boss_skeleton.png",
+      "sha256": "d5cd55dea64c62dc54e9c2619c1ea8c5c0863295aa2cca886a4044868a88d7d8",
+      "width": 1800,
+      "height": 700,
+      "frameWidth": 100,
+      "frameHeight": 100
+    },
+    "atl_boss3": {
+      "url": "/assets/boss_slime.png",
+      "archivePath": "CERTZ/public/assets/boss_slime.png",
+      "sha256": "88d01a44e39f1e9c2b313b326681e824a4dd9ee3dfdf2488283db3da2f3dee9c",
+      "width": 6336,
+      "height": 1120,
+      "frameWidth": 288,
+      "frameHeight": 160
+    },
+    "atl_boss_nidhog": {
+      "url": "/assets/boss_dragon.png",
+      "archivePath": "CERTZ/public/assets/boss_dragon.png",
+      "sha256": "122254e7b34e8104e2429a696173f522671d2c0a50c5241c380274750b6bb5d5",
+      "width": 4096,
+      "height": 1099,
+      "frameWidth": 256,
+      "frameHeight": 157
+    },
+    "atl_boss_fenrir": {
+      "url": "/assets/boss_mino.png",
+      "archivePath": "CERTZ/public/assets/boss_mino.png",
+      "sha256": "a71afa07f2afab280be2cce29f3ae5ae34f8d93ca08b3bcfc329653a286f1621",
+      "width": 4608,
+      "height": 1120,
+      "frameWidth": 288,
+      "frameHeight": 160
+    },
+    "atl_boss_nagr": {
+      "url": "/assets/boss_frost.png",
+      "archivePath": "CERTZ/public/assets/boss_frost.png",
+      "sha256": "ea2cd106c807118178825460a3a26135f7e2d10ed44ff1c7ba4be2e27630c8e6",
+      "width": 3072,
+      "height": 896,
+      "frameWidth": 192,
+      "frameHeight": 128
+    },
+    "atl_boss_surt": {
+      "url": "/assets/boss_slime.png",
+      "archivePath": "CERTZ/public/assets/boss_slime.png",
+      "sha256": "88d01a44e39f1e9c2b313b326681e824a4dd9ee3dfdf2488283db3da2f3dee9c",
+      "width": 6336,
+      "height": 1120,
+      "frameWidth": 288,
+      "frameHeight": 160
     }
   }
 }

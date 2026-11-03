@@ -1,4 +1,5 @@
 "use client";
+import { rpgCampSession } from "@/game/campaign/rpgSession";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -3835,6 +3836,16 @@ export function GamePanels({
     }
   }
 
+  if (rpgCampSession() && ["quest", "trade", "trade2", "rank"].includes(panel ?? "")) return (
+    <div className="pointer-events-auto fixed inset-0 z-50 grid place-items-center bg-black/60">
+      <section role="dialog" aria-label="서약 기록" className="max-w-md rounded-xl border border-amber-300/50 bg-slate-950 p-6 text-white">
+        <h2 className="mb-3 text-xl font-bold">기억의 서약</h2>
+        <p className="mb-4">본편 이야기와 연합의 거래·도전 기록을 이어갑니다.</p>
+        <a className="rounded bg-amber-200 px-4 py-2 font-bold text-slate-950" href="/?resume=1" onClick={() => EventBus.emit("game:checkpoint")}>이야기와 연합으로</a>
+        <button className="ml-4" onClick={onClose}>닫기</button>
+      </section>
+    </div>
+  );
   if (panel === "shop") return <ShopPanel rpg={rpg} onClose={onClose} />;
   if (panel === "bmshop") return <BmShopPanel rpg={rpg} onClose={onClose} />; // v3.0.6 — BM 상점
   if (panel === "trade") return <TradePanel rpg={rpg} onClose={onClose} />; // v3.0.7 — 유저 거래소
@@ -5519,7 +5530,7 @@ function BossReplayPanel({ rpg, onClose }: { rpg?: RpgState; onClose: () => void
                 }`}
               >
                 <p className={`truncate text-[10px] font-black ${cleared ? "text-rose-100" : "text-white/55"}`}>
-                  {ch.num}장 {ch.title}
+                  {rpgCampSession() ? "훈련 · " : `${ch.num}장 `}{ch.title}
                 </p>
                 <p className={`truncate text-[9px] font-bold ${cleared ? "text-rose-200/90" : "text-white/55"}`}>
                   {cleared ? BOSS_DEFS[bk].name : "스토리 진행 필요"}

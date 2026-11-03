@@ -5,7 +5,7 @@ The campaign uses the user's existing project assets. Original files are selecte
 - SPUM: existing project renders and exact-source portrait crops. The project records a user purchase from Unity Asset Store. Restoration record: docs/assets_license/spum_npc_restore.json; renderer: scripts/spum_compose.py. This material is not represented as CC0.
 - Existing furniture, foliage, and town/dungeon objects: furn_*, fm_*, objects/ from the user-supplied project. Original source and purchase records remain in public/assets/CREDITS.md and the project's asset documentation.
 - Dungeon Crawl Stone Soup tiles, Oct-5-2010: CC0. Original LICENSE and README are retained under drive/. https://opengameart.org/content/dungeon-crawl-32x32-tiles
-- pixelfx: MIT. License retained as pixelfx-LICENSE.txt.
+- Original directional body, boss, minion and slash frames: user-supplied project files, verified by animationFiles in drive/manifest.json. Existing animation registrars are reused. No new frames were generated. The newly added sunburst PNG/atlas was removed; its retained MIT license is historical provenance only.
 - Selected existing BGM/SFX: original project recordings, balance and normalization from src/game/audio.ts. The project credits Kevin MacLeod (incompetech.com), CC BY 4.0, for its original BGM library, and the purchased Fantasy UI SFX pack for its restored interface sounds. Original track-specific credits are preserved with the source project; no new recording is claimed.
 - Galmuri: SIL Open Font License 1.1; original font license remains with the project.
 

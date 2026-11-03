@@ -692,6 +692,7 @@ export class BootScene extends Phaser.Scene {
      *  로드 총량이 같으므로 완료 시간은 거의 동일하고, 대신 멈추지 않는다. */
     this.load.maxParallelDownloads = 2;
     this.load.setPath("assets");
+    this.load.image("camp-plaza", "campaign/drive/floor-castle.png");
     /* vc206 (지시 #11) — webp 우선 로드 후, PNG 원본이 있는 타일은 PNG 로 덮어 로드한다.
      *  Phaser 는 같은 키를 두 번 큐잉하면 나중 것이 이기므로 PNG 가 최종 텍스처가 된다.
      *  (webp 5종이 PNG 대비 색이 40~93% 뭉개져 있어 "종이 쪼가리"로 보였다) */

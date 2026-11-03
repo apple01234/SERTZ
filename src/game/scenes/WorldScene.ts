@@ -1,5 +1,6 @@
+import { rpgCampSession, isCampStage } from "../campaign/rpgSession";
 import Phaser from "phaser";
-import { DECOR_BUDGET, decorSetFor, pickByTag, type DecorObj } from "../decorObjects";
+import { DECOR_BUDGET, decorSetFor, pickByTag, decorFootprint, isSolidDecor, type DecorObj } from "../decorObjects";
 import { createGameState, type GameState } from "../state/gameState";
 import { DMG_PCT, BM_STOCK, STAGES, DIALOGUES, ITEMS, SHOP_STOCK, NEXT_STAGE, PREV_STAGE, STAGE_SHORT, STAGE_THEME, BOSS_DEFS, BOSS_DIFFS, BOSS_DIFF_ORDER, bossEmeraldOf, BOSS_DROP_ITEMS, ENEMIES, BUFF_DEFS, PET_DEFS, COSMETIC_DEFS, GOLD_DROP_SCALE, stageScale, stageIntro, resolveStage, chapterSpec, parseStage, JOBSTORY, CHAPTER_VILLAGE_NPC, starTier, STAR_TIER_COLORS, TRADE_PRICES, tradeValue, POT_GRADE_META, potLineText, SET_GEAR, FRAGMENT_META, FRAGMENT_CHAPTERS, CHEST_TABLES, PACK_CONTENTS, STORE_PACK_CONTENTS, dailyDeals, DAILY_DEAL_OFF, CHAPTERS, closetThemeOf, CLOSET_THEMES, ELEM_REACTION_META, QUEST_EXP_MUL, type BmGrant, type ClosetTheme, type StageKey, type StageDef, type ItemKey, type EnemyDef, type EnemyKey, type BossDef, type BossKey, type QuestDef, type BuffKey, type PetKey, type CosmeticKey, type JobStoryDef, type BossDiffKey, type ElemKey, type ElemReactionKey } from "../data";
 import { familyOf, isClassKey, classLabel, SKILL_ICONS, type FamilyKey } from "../classes";
@@ -2309,7 +2310,7 @@ export class WorldScene extends Phaser.Scene {
      *  기존엔 stageIntro 폴백(villageIntro — 룬 정령 이그니)이 모든 콘텐츠에서 재생돼
      *  "컨텐츠마다 NPC UI가 뜨는데 아무 의미 없다"는 지적으로 이어졌다 */
     const isContentStage = stageKey === "tower" || stageKey === "park" || stageKey === "gate" || stageKey === "closet" || stageKey === "dojang";
-    if (!this.isInterior && !isContentStage) {
+    if (!rpgCampSession() && !this.isInterior && !isContentStage) {
       if (stageKey === "village" && !savedPlayer?.playerName) {
         // v1.1.0 (#18) — 신규 플레이어: 프롤로그 시네마틱(내레이션 4비트) → 플레이형 인트로(이동 → 우물 → 이름 짓기)
         this.showPrologue(() => this.startIntroSequence());
@@ -3515,7 +3516,9 @@ export class WorldScene extends Phaser.Scene {
 
     /* 로드되지 않은 키는 Phaser 가 __MISSING(검은 사각형)으로 그린다.
      *  부팅 로드 목록과 카탈로그가 어긋나는 사고를 여기서 차단한다. */
-    const usable = (list: DecorObj[]) => list.filter((o) => this.textures.exists(o.key));
+    // The old town catalog contains atlas fragments and modern vending machines.
+    // Camp uses the intact houses/furniture placed by buildVillage instead.
+    const usable = (list: DecorObj[]) => list.filter((o) => this.textures.exists(o.key) && !(rpgCampSession() && o.key.startsWith("obj_town_")));
 
     const tryPlace = (
       list: DecorObj[],
@@ -3566,21 +3569,19 @@ export class WorldScene extends Phaser.Scene {
       return null;
     };
 
+    const addSolid = (img: Phaser.GameObjects.Image, w: number, h: number, key?: string) => {
+      const shape = decorFootprint(w, h, key);
+      this.solidGroup.add(img);
+      (img.body as Phaser.Physics.Arcade.StaticBody).setSize(shape.width, shape.height).setOffset(shape.offsetX, shape.offsetY);
+      img.setData("obstacle", true);
+    };
     // 1) 큰 오브젝트 — 가장자리 위주, 충돌 부여
     tryPlace(
       usable(pickByTag(setKey, "big")),
       budget.big,
       (o, x, y) => {
         const img = this.add.image(x, y, o.key).setDepth(this.yDepthFor(y));
-        /* 나무·건물은 발밑만 충돌한다. 스프라이트 전체를 막으면 캐릭터가
-         *  허공에서 걸린다(그림자 위를 못 지나감). */
-        this.solidGroup.add(img);
-        const bh = Math.max(18, Math.round(o.h * 0.30));
-        const bw = Math.max(20, Math.round(o.w * 0.55));
-        (img.body as Phaser.Physics.Arcade.StaticBody)
-          .setSize(bw, bh)
-          .setOffset(Math.round((o.w - bw) / 2), Math.max(0, o.h - bh - 2));
-        img.setData("obstacle", true);
+        addSolid(img, o.w, o.h, o.key);
       },
       openPos,
     );
@@ -3590,7 +3591,8 @@ export class WorldScene extends Phaser.Scene {
       usable(pickByTag(setKey, "wall")),
       budget.wall,
       (o, x, y) => {
-        this.add.image(x, y, o.key).setDepth(this.yDepthFor(y) - 1).setAlpha(0.98);
+        const img = this.add.image(x, y, o.key).setDepth(this.yDepthFor(y) - 1).setAlpha(0.98);
+        if (isSolidDecor(o.key)) addSolid(img, o.w, o.h, o.key);
       },
       wallPos,
     );
@@ -3600,7 +3602,8 @@ export class WorldScene extends Phaser.Scene {
       usable(pickByTag(setKey, "floor")),
       budget.floor,
       (o, x, y) => {
-        this.add.image(x, y, o.key).setDepth(1).setAlpha(0.96);
+        const img = this.add.image(x, y, o.key).setDepth(isSolidDecor(o.key) ? this.yDepthFor(y) : 1).setAlpha(0.96);
+        if (isSolidDecor(o.key)) addSolid(img, o.w, o.h, o.key);
       },
       openPos,
     );
@@ -3610,7 +3613,8 @@ export class WorldScene extends Phaser.Scene {
       usable(pickByTag(setKey, "small")),
       budget.small,
       (o, x, y) => {
-        this.add.image(x, y, o.key).setDepth(this.yDepthFor(y)).setAlpha(0.96);
+        const img = this.add.image(x, y, o.key).setDepth(this.yDepthFor(y)).setAlpha(0.96);
+        if (isSolidDecor(o.key)) addSolid(img, o.w, o.h, o.key);
       },
       openPos,
     );
@@ -3949,7 +3953,10 @@ export class WorldScene extends Phaser.Scene {
    */
   private gotoStage(next: StageKey, extra?: { entry?: { x: number; y: number }; replayBoss?: string; replayDiff?: string; gmBoss?: string; save?: SaveData }, force = false) {
     if (this.transitioning && !force) return;
-    if (!storyEntryAllowed(next, this)) {
+    if (rpgCampSession() && !isCampStage(next)) {
+      this.save(); window.location.assign("/?resume=1"); return;
+    }
+    if (!rpgCampSession() && !storyEntryAllowed(next, this)) {
       notice(next.startsWith("dlc")
         ? "그랜드 플레닛은 영준 프린세스 엔딩 이후에 열립니다"
         : "영준 프린세스는 본편 엔딩 이후에 열립니다");
@@ -4333,6 +4340,16 @@ export class WorldScene extends Phaser.Scene {
   private buildVillage() {
     const cx = this.stageW / 2;
     const cy = this.stageH / 2;
+    if (rpgCampSession()) {
+      // An authored plaza and clear spokes connect the existing functional doors.
+      this.add.tileSprite(cx, cy + 12, 1080, 288, "camp-plaza").setDepth(0.5).setTileScale(2);
+      this.add.tileSprite(cx - 190, cy + 200, 192, 320, "camp-plaza").setDepth(0.5).setTileScale(2);
+      for (const x of [cx - 245, cx + 245]) {
+        const bench = this.add.image(x, cy + 115, "furn_bench").setDepth(this.yDepthFor(cy + 115));
+        this.solidGroup.add(bench);
+        (bench.body as Phaser.Physics.Arcade.StaticBody).setSize(65, 16).setOffset(10, 21);
+      }
+    }
 
     /* v1.4.3 (작업1/리포트 ②) — 구 유적 자리: 보물상자(상자만 잔존 — 유저 리포트 ②)는
      *  원래 자리에 둔다.
@@ -9658,7 +9675,7 @@ export class WorldScene extends Phaser.Scene {
     const specialZone =
       this.stageDef.key === "tower" || this.stageDef.key === "closet" || this.stageDef.key === "gate" ||
       this.stageDef.key === "dojang" || this.stageDef.key === "park" || this.stageDef.key === "praid";
-    const final = !specialZone && NEXT_STAGE[this.stageDef.key] === null;
+    const final = !rpgCampSession() && !specialZone && NEXT_STAGE[this.stageDef.key] === null;
     /* vc231 — 영프 편 마지막 구역은 NEXT_STAGE 가 dlcstargate1 이라 final 이 아니다.
      *  `this.cleared`(본편 세계 구원) 를 건드리지 않는다 — 영프 엔딩은 별도 플래그다. */
     if (!howlFinalStage(this.stageDef.key)) this.cleared = final;
@@ -9675,7 +9692,7 @@ export class WorldScene extends Phaser.Scene {
      * `next === null` 로 판정하지 않는 이유: 영프 편 5-10 의 NEXT_STAGE 는
      * `dlcstargate1` 이다(체인 연결). 즉 null 이 아니므로 `final` 로 잡히지 않는다.
      * ══════════════════════════════════════════════════════════════════════════ */
-    const howlFinal = howlFinalStage(this.stageDef.key);
+    const howlFinal = !rpgCampSession() && howlFinalStage(this.stageDef.key);
     if (howlFinal) {
       this.youngPrincessCleared = true;
       this.time.delayedCall(1200, () => {
@@ -10912,6 +10929,13 @@ export class WorldScene extends Phaser.Scene {
     EventBus.on("rpg:buy", onBuy);
     /* vc178 — 집 꾸미기: 배치/이동/회수 (HomePanel에서 발행) */
     const onHomePlace = (v: { key: ItemKey; cx: number; cy: number }) => this.homeDecorPlace(v.key, v.cx, v.cy);
+    const onCheckpoint = () => { if (this.player) this.flushSave(); };
+    EventBus.on("game:checkpoint", onCheckpoint);
+    window.addEventListener("pagehide", onCheckpoint);
+    this.events.once("shutdown", () => {
+      EventBus.off("game:checkpoint", onCheckpoint);
+      window.removeEventListener("pagehide", onCheckpoint);
+    });
     const onHomeRemove = (v: { key: ItemKey; idx: number }) => this.homeDecorRemove(v.idx);
     EventBus.on("rpg:homePlace", onHomePlace);
     EventBus.on("rpg:homeRemove", onHomeRemove);
@@ -15248,6 +15272,12 @@ export class WorldScene extends Phaser.Scene {
         /* vc179 (지시 #3) — 돌리기: rot 0~3 = 0/90/180/270도 */
         .setRotation(((d.rot ?? 0) % 4) * (Math.PI / 2))
         .setDepth(Math.floor(this.homeCellY(d.y) / 10));
+      if (isSolidDecor(d.key)) {
+        const bounds = img.getBounds(), shape = decorFootprint(bounds.width, bounds.height);
+        const collider = this.add.rectangle(bounds.x + bounds.width / 2, bounds.bottom - shape.height / 2 - 2, shape.width, shape.height, 0, 0);
+        this.solidGroup.add(collider);
+        img.once("destroy", () => collider.destroy());
+      }
       this.homeDecorImgs.push(img);
     }
   }
@@ -15275,6 +15305,12 @@ export class WorldScene extends Phaser.Scene {
         .setOrigin(0.5, 0.9)
         .setRotation(((d.rot ?? 0) % 4) * (Math.PI / 2))
         .setDepth(this.yDepthFor(d.y));
+      if (isSolidDecor(d.key)) {
+        const bounds = img.getBounds(), shape = decorFootprint(bounds.width, bounds.height);
+        const collider = this.add.rectangle(bounds.x + bounds.width / 2, bounds.bottom - shape.height / 2 - 2, shape.width, shape.height, 0, 0);
+        this.solidGroup.add(collider);
+        img.once("destroy", () => collider.destroy());
+      }
       this.fieldDecorImgs.push(img);
     }
   }
@@ -17132,7 +17168,7 @@ export class WorldScene extends Phaser.Scene {
     if (this.saveTimer !== null) return;
     this.saveTimer = window.setTimeout(() => {
       this.saveTimer = null;
-      this.saveSoon();
+      this.save();
     }, 250);
   }
   /** 예약된 저장을 즉시 확정 (씬 종료·포탈 이동·백그라운드 진입) */

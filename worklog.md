@@ -4885,3 +4885,18 @@ Stage Summary:
 - fp 팀에 prj_iEfvcVgW790vIycqJBcix7T1R9wR을 생성하고 선별 추적 파일 848개를 업로드해 프로덕션 dpl_FnKCF5YjC6XFbCyqstUcMr8QgGzf의 READY를 API로 확인했다. 이후 조회된 프로젝트명은 sertz이며 Git 연결은 SERTZ/main이다. 사용자/외부에서 바뀐 프로젝트명과 연결은 덮어쓰지 않았다.
 - https://certz-memory-oath.vercel.app 공개 접속과 게임 에셋 113개 HTTP 200, 실제 배포 주소의 Chromium 전체 검사(첫 장/저장 복원/보스/모바일/저장 복구)를 통과했다. 협동 검사의 서버/계정 HTTP는 기존 로컬 테스트 구성이며 운영 서버 배포로 표시하지 않는다. 접속/배포/운영 한계를 DEPLOYMENT.md에 기록했다.
 - 최종 공개 도메인은 프로젝트 설정에서 sertz2.vercel.app로 변경되어 이 주소로 문서를 갱신했다. 문서 커밋 4a94b0d의 SERTZ/main 푸시가 fp/sertz의 새 production 배포 dpl_64iPHqsniQDo9ipscmz4XU8wM5hx를 만들고 GitHub Vercel success로 완료되는 것을 확인했다. 게임 로직은 그대로이며 최종 도메인의 캐릭터 생성·대화·저장 복원 브라우저 검사도 통과했다.
+
+
+## Task — 원래 RPG 복구·애니메이션/충돌 수정·14개 게임 REA 심화 적용 (2026-11-03)
+
+- 사용자 지시에 따라 Git remote를 apple01234/SERTZ 하나로 고정했다. 다른 저장소에 커밋/푸시하지 않는다.
+- 원래 GameRoot/WorldScene/Player/Panels를 /camp에 연결해 장비·능력치·전직·제작·하우징·원정·던전·유니온을 복구했다. 본편과 연결하고 원래 9개 바다 서사는 유지하지 않는다. 보스 spawn/portal은 서사 없는 훈련 목표로 유지한다.
+- 전체 원본 런타임 에셋 팩 보존으로 변경했다. 이미지 생성 없이 원본 방향/공격 프레임 152개와 원본 보스 시트 6종을 실제 애니메이션에 연결했다. 생성 sunburst PNG/atlas를 삭제하고 원본 참격으로 교체했다. 잘못 분류된 자판기·시트 조각을 제외했다.
+- 수치형 불투명 범위/발밑 충돌을 원래 엔진, 본편, 서버, 16px 경로 탐색에 연결했다. 가구 배치/회전/회수 때 물리 body를 동기화하고 잔류 벽을 제거한다.
+- 기존 13개와 JENNY 추가 자료를 정적으로 조사했다. REA PCK/ZIP 검사, Unity CIL 호출과 coroutine 경로, RPG Maker 23개 맵 및 전송 70개, Construct 레이어/프레임, GameMaker 방 목록을 심화했다. 공식 checksum 확인 GDRE로 Nefarius 77·Feather Park 78·JENNY 800 스크립트를 복원했으며 선택 행동만 읽었다. 전체 게임 실행/완주로 과장하지 않는다. 원본 게임 코드/아트를 제품에 복사하지 않았다.
+- JENNY의 준비/발동/회복/취소 구조를 참고해 공유 전투에 직업별 준비·후딜·단일 피해·쿨타임·회피 취소를 구현했다. 스킬 명중에만 원본 참격/기존 셰이크를 사용한다. 1.4초 보스 등장과 건너뛰기, 대화 카메라·입력 복구를 추가했다.
+- 원래 지연 저장이 자기 자신을 계속 예약하던 오류를 수정했다. 원본 저장은 건드리지 않고 RPG namespace를 격리하며 본편 복귀/pagehide에서 확정 저장한다.
+- Pixel Frog의 공식 별도 CC0 구버전 팩을 다운로드/해시 검증했으나 game-dev admission CLI가 없어 제품에 편입하지 않았다. 현재 적용 그래픽은 사용자 제공 원본이다.
+- npm test 72/72, tsc, strict lint, production build 통과. 개발 브라우저에서 애니메이션/컷씬/충돌/장비/AP/가구/원본 보스 필드/저장 격리를 확인했다. standalone 전체 원본 팩과 선택 미디어 196개 해시를 확인하고 production 브라우저의 첫 장/보스/모바일/복구/실제 로컬 3인 협동 검사를 통과했다.
+- 자세한 근거·적용·미해독 범위는 docs/campaign/REFERENCE_DEEP_ANALYSIS.md, JENNY_EVIDENCE.json, REFERENCE_DEEP_EVIDENCE.json에 기록했다. 운영 계정/실결제/상시 전투 서버와 네이티브 설치는 이번 검증으로 주장하지 않는다.
+- 추가 확인: 원래 거점의 세로 계속하기와 가방을 확인하고 상단 HP를 가리지 않게 작은 화면의 메뉴 위치를 내렸다. 원래 가로 화면 최적화 안내는 유지한다.
