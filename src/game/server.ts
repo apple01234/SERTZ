@@ -27,7 +27,7 @@ export const GAME_SERVER = (
 
 /** v1.4.27 (#APK기본API) — 네이티브 웹뷰 기본 API 본체 (ServerConnect 철거로 저장 주소가
  *  없는 신규 설치분의 유일한 API 경로). 서버 이전 시 이 상수만 갱신하면 된다. */
-export const DEFAULT_API_BASE = "https://sertz2.vercel.app";
+export const DEFAULT_API_BASE = "https://sertz.vercel.app";
 
 /**
  * same-origin 게임 서버 오리진 판정 — 이 오리진에서 열린 페이지는

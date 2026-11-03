@@ -1,6 +1,5 @@
 "use client";
 
-import { rpgCampSession } from "@/game/campaign/rpgSession";
 import { useEffect, useRef, useState } from "react";
 import { createGame } from "@/game/PhaserGame";
 import type Phaser from "phaser";
@@ -282,7 +281,7 @@ export default function GameRoot() {
           </>
         )}
 
-        {state === "title" && !rpgCampSession() && (
+        {state === "title" && (
           <div className="pointer-events-auto contents">
             <TitleScreen />
             {/* v1.4.24 — 서버주소 설정창 제거 (#멀티정리): 멀티서버 중단으로 무용 + "서버주소 = https://sertz.vercel.app/" 표시 보고의 근원이던 UI. 멀티 재개 시 복원.
@@ -323,7 +322,7 @@ export default function GameRoot() {
         )}
 
         {/* 인트로 이름 짓기 패널 */}
-        {!rpgCampSession() && <NamePanel />}
+        <NamePanel />
         <FeatureTutorialOverlay />
 
         <GamePanels panel={panel} rpg={rpg} hud={hud} questLog={questLog} onClose={() => { audio.sfx.uiClose(); setPanel(null); }} />

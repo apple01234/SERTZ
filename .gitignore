@@ -204,7 +204,3 @@ assets_backup_monster_run/
 vendor/pixelfx/records
 SERTZ-web-*.tar.gz
 .fxtest/
-
-# Browser/MCP evidence is generated locally.
-.playwright-mcp/
-memory-oath-title.png

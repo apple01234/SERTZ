@@ -16,8 +16,3 @@ server.log
 dev.log
 *.apk
 *.keystore
-
-# Keep the original game packs: RPG systems load their own assets on demand.
-public/fxall.html
-public/fxtest.html
-public/perfbench.html
