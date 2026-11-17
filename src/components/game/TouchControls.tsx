@@ -363,6 +363,7 @@ export function TouchControls({
                 cdMax={s.cdMax}
                 label={s.name}
                 mp={s.mp}
+                currentMp={skills.mp}
                 icon={s.icon}
                 compact={!!sm}
                 tutGlow={s.key === "s1" && !!tutDom.skill} /* v1.0.13 피드백#17 — 튜토리얼 ⑤는 첫 스킬(회전베기) 대상 */
@@ -386,6 +387,7 @@ export function TouchControls({
                 cdMax={skills.s5Max ?? 60000}
                 label={s5Name || ""}
                 mp={100}
+                currentMp={skills.mp}
                 icon={skills.s5Icon}
                 ult
                 compact={!!sm}
@@ -409,6 +411,7 @@ export function TouchControls({
                 cdMax={skills.s5bMax ?? 120000}
                 label={s5bName || ""}
                 mp={150}
+                currentMp={skills.mp}
                 /* vc204 (#3) — 종전엔 s5Icon(1차 궁극기 아이콘)을 그대로 써서
                  *  2차 궁극기 버튼이 1차와 같은 그림이었다. s5bIcon 이 있으면 그것을 쓴다. */
                 icon={skills.s5bIcon ?? skills.s5Icon}

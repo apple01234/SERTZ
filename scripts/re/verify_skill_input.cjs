@@ -1,0 +1,70 @@
+const {chromium}=require('playwright');
+(async()=>{
+ const fs=require('node:fs');const path=require('node:path');const out=process.env.SERTZ_TEST_OUT||'.fxtest/skill-input';fs.mkdirSync(out,{recursive:true});
+ const browser=await chromium.launch({executablePath:process.env.SERTZ_CHROMIUM||'/usr/bin/chromium',headless:true,args:['--no-sandbox','--disable-dev-shm-usage','--use-angle=swiftshader','--enable-unsafe-swiftshader']});
+ try {
+ const page=await browser.newPage({viewport:{width:1280,height:720}});
+ const errors=[];page.on('pageerror',e=>errors.push(String(e)));page.setDefaultTimeout(90000);
+ await page.goto(process.env.SERTZ_TEST_URL||'http://127.0.0.1:3000',{waitUntil:'domcontentloaded'});
+ await page.waitForFunction(()=>window.__SERTZ_DEBUG__?.game?.scene?.isActive('title'),null,{timeout:90000}).catch(async e=>{console.log(await page.evaluate(()=>({text:document.body.innerText,scenes:window.__SERTZ_DEBUG__.game.scene.scenes.map(s=>({key:s.scene.key,status:s.sys.settings.status,load:s.load.progress,loading:s.load.isLoading(),queue:s.load.list.size,inflight:s.load.inflight.size}))})));throw e});
+ console.log('title ready');
+ await page.evaluate(()=>window.__SERTZ_DEBUG__.game.scene.start('world',{save:{stage:'dojang',lv:20,exp:0,maxHp:300,atk:12,maxMp:200,hp:300,mp:200,cleared:false,cls:'warrior',startCls:'warrior',playerName:'검증',tutorialDone:true,introSeen:true}}));
+ await page.waitForFunction(()=>{const s=window.__SERTZ_DEBUG__.game.scene.getScene('world');return s.scene.isActive()&&s.player?.active&&!s.dialoguing},{timeout:60000});
+ console.log('world ready');
+ const assert=require('node:assert/strict');
+ const results=[];
+ await page.evaluate(()=>{
+  const g=window.__SERTZ_DEBUG__.game;g.loop.stop();const s=g.scene.getScene('world');const p=s.player;
+  window.__probe={calls:0};const original=p.useSkill2.bind(p);
+  p.useSkill2=()=>{window.__probe.calls++;original();};
+  p.state='idle';p.skill1Cd=1000;p.skill2Cd=200;p.mp=100;s.emitSkills();
+ });
+ const dash=page.getByRole('button',{name:/^돌진베기 ·/});
+ await dash.click();
+ let result=await page.evaluate(()=>{const s=window.__SERTZ_DEBUG__.game.scene.getScene('world');return {pending:s.skillBuf.pending,calls:window.__probe.calls,cd:s.player.skill2Cd}});
+ assert.deepEqual(result,{pending:'s2',calls:0,cd:200});results.push('pointer input waits for the actual cooldown');
+ await page.evaluate(()=>{const s=window.__SERTZ_DEBUG__.game.scene.getScene('world');s.player.skill2Cd=0;s.flushBufferedSkill();s.flushBufferedSkill();});
+ result=await page.evaluate(()=>{const s=window.__SERTZ_DEBUG__.game.scene.getScene('world');return {calls:window.__probe.calls,mp:s.player.mp,state:s.player.state}});
+ assert.deepEqual(result,{calls:1,mp:80,state:'dash'});results.push('one dash and one MP debit after cooldown; click does not duplicate pointerdown');
+ await page.evaluate(()=>{const s=window.__SERTZ_DEBUG__.game.scene.getScene('world');s.resetInputState();s.player.state='attack';s.player.skill2Cd=0;s.player.mp=100;});
+ await page.keyboard.down('c');
+ await page.evaluate(()=>{const s=window.__SERTZ_DEBUG__.game.scene.getScene('world');s.update(s.time.now,16);});
+ await page.keyboard.up('c');
+ result=await page.evaluate(()=>{const s=window.__SERTZ_DEBUG__.game.scene.getScene('world');return {pending:s.skillBuf.pending,calls:window.__probe.calls}});
+ assert.deepEqual(result,{pending:'s2',calls:1});
+ await page.evaluate(()=>{const s=window.__SERTZ_DEBUG__.game.scene.getScene('world');s.player.state='idle';s.flushBufferedSkill();});
+ assert.equal(await page.evaluate(()=>window.__probe.calls),2);results.push('real keyboard binding queues during attack and fires after recovery');
+ result=await page.evaluate(()=>{
+  const s=window.__SERTZ_DEBUG__.game.scene.getScene('world');s.player.state='idle';s.player.skill2Cd=0;
+  const checks=[];
+  for(const gate of ['dialoguing','sleeping','transitioning','chatFocused','panelNavOpen']){s[gate]=true;s.queueSkill('s2');checks.push([gate,s.skillBuf.pending]);s[gate]=false;}
+  const input=document.createElement('input');document.body.append(input);input.focus();s.queueSkill('s2');checks.push(['typing',s.skillBuf.pending]);input.remove();
+  s.player.state='attack';s.queueSkill('s2');s.resetInputState();checks.push(['reset',s.skillBuf.pending]);
+  return checks;
+ });
+ assert.ok(result.every(([,pending])=>pending===null));assert.equal(await page.evaluate(()=>window.__probe.calls),2);results.push('dialogue, sleep, transition, chat, panel, typing and input reset clear queued actions');
+ await page.evaluate(()=>{const s=window.__SERTZ_DEBUG__.game.scene.getScene('world');s.player.state='idle';s.player.skill2Cd=0;s.player.mp=100;s.emitSkills();});
+ await dash.focus();await page.keyboard.press('Enter');
+ assert.equal(await page.evaluate(()=>window.__probe.calls),3);
+ assert.equal(await page.evaluate(()=>window.__SERTZ_DEBUG__.game.scene.getScene('world').chatFocused),false);
+ await page.evaluate(()=>{const s=window.__SERTZ_DEBUG__.game.scene.getScene('world');s.player.state='idle';s.player.skill2Cd=0;s.player.mp=100;s.emitSkills();});
+ await dash.focus();await page.keyboard.press('Space');
+ assert.equal(await page.evaluate(()=>window.__probe.calls),4);results.push('native Enter and Space activation each fire once without opening chat');
+ await page.evaluate(()=>{const s=window.__SERTZ_DEBUG__.game.scene.getScene('world');s.player.mp=0;s.player.skill1Cd=0;s.player.skill2Cd=0;s.emitSkills();});
+ await page.waitForFunction(()=>[...document.querySelectorAll('button')].some(b=>b.getAttribute('aria-label')==='돌진베기 · MP 부족'&&b.disabled));
+ assert.equal(await dash.isDisabled(),true);assert.match(await dash.getAttribute('aria-label'),/MP 부족/);
+ await page.screenshot({path:path.join(out,'mp-feedback.png')});results.push('MP shortage is visible, accessible and blocks input');
+ await page.setViewportSize({width:844,height:390});
+ await page.evaluate(()=>{const s=window.__SERTZ_DEBUG__.game.scene.getScene('world');s.player.state='idle';s.player.mp=100;s.player.skill2Cd=200;s.emitSkills();});
+ await page.waitForFunction(()=>[...document.querySelectorAll('button')].some(b=>b.getAttribute('aria-label')?.startsWith('돌진베기 · 재사용 대기')&&!b.disabled));
+ await dash.dispatchEvent('pointerdown',{button:0,pointerType:'touch',pointerId:1,isPrimary:true});
+ assert.equal(await page.evaluate(()=>window.__SERTZ_DEBUG__.game.scene.getScene('world').skillBuf.pending),'s2');
+ assert.equal(await page.evaluate(()=>window.__probe.calls),4);
+ await page.evaluate(()=>{const g=window.__SERTZ_DEBUG__.game;window.__resumeFrame=g.loop.frame;g.loop.start(g.loop.callback);});
+ await page.waitForFunction(()=>window.__SERTZ_DEBUG__.game.loop.frame>window.__resumeFrame+1);
+ await page.screenshot({path:path.join(out,'mobile-buffer.png')});results.push('mobile viewport and touch pointer share the cooldown buffer');
+ const report={results,pageErrors:errors,clock:'Phaser loop stopped after world entry for deterministic input/cooldown checks; browser DOM and real handlers used'};
+ console.log(JSON.stringify(report,null,2));fs.writeFileSync(path.join(out,'result.json'),JSON.stringify(report,null,2)+'\n');
+ assert.deepEqual(errors,[]);
+ } finally { await browser.close(); }
+})().catch(e=>{console.error(e);process.exit(1)});

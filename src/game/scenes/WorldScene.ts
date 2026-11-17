@@ -32,7 +32,7 @@ import { Pet } from "../entities/Pet";
 import { EventBus, type QuestState, type InteractState, type QuestLogState, type RewardPopupState } from "../../components/game/EventBus";
 import { ALL_KEYS, fillKeyObjects } from "./input/keyRegistration";
 import { notice } from "../fx/Notice";
-import { SkillInputBuffer, type SkillCaster, type SkillId } from "./input/skillBuffer";
+import { SkillInputBuffer, type SkillId } from "./input/skillBuffer";
 import { cine3d } from "../cine3d"; // vc181 — 3D 시네마틱 레이어
 import { writeSave, loadSave, getFcode, type SaveData, setPlayerName, getPlayerName } from "../config";
 import { createSimRunner, SIM_STEP_MS } from "../sim/fixedStep"; // vc183 — 20Hz 고정 틱 시뮬레이션
@@ -260,9 +260,6 @@ export class WorldScene extends Phaser.Scene {
   /** v1.0.16 — 장판 넉백 방향 재사용 버퍼 (틱마다 대상 수만큼 Vector2를 만들던 것 제거) */
   private fieldAwayVec = new Phaser.Math.Vector2();
   private attackQueued = false;
-  /** v1.1.4 (#개편 입력버퍼링) — 대기 중인 스킬 발동. update에서 idle이 되는 순간 실행된다.
-   *  setupInput이 실제 구현을 주입한다(입력 이벤트는 거기서 등록되므로 버퍼 상태를 그 스코프에 둔다). */
-  private flushBufferedSkill: () => void = () => {};
   /* vc225 — 스킬 입력 버퍼 (기존 setupInput 지역변수 bufferedSkill 대체) */
   private readonly skillBuf = new SkillInputBuffer();
   /** v1.3.1 (#8) — 앱 전환 복귀 자가치유 핸들러 (cleanup에서 해제) */
@@ -9848,6 +9845,22 @@ export class WorldScene extends Phaser.Scene {
 
   /* ================= 입력 ================= */
 
+  private queueSkill(id: SkillId) {
+    this.skillBuf.queue(id, this.time.now);
+    this.flushBufferedSkill();
+  }
+
+  private flushBufferedSkill() {
+    const ae = document.activeElement as HTMLElement | null;
+    const typing = !!ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA" || ae.isContentEditable);
+    if (!this.player || this.player.state === "dead" || this.dialoguing || this.sleeping ||
+        this.transitioning || this.chatFocused || this.panelNavOpen || typing) {
+      this.skillBuf.clear();
+      return;
+    }
+    this.skillBuf.flush(this.player, this.time.now);
+  }
+
   private setupInput() {
     const kb = this.input.keyboard!;
     // v1.9 키 매핑 — 모든 배정 가능 키를 미리 등록해 두고 keymap에서 조회
@@ -9870,21 +9883,13 @@ export class WorldScene extends Phaser.Scene {
      *  (공격과 같은 방식 — attackQueued가 이미 그렇게 동작한다)
      *  대기 중 다른 스킬을 누르면 최신 입력이 이전 입력을 대체한다(의도한 행동 우선). */
     /* vc225 — 스킬 입력 버퍼를 `scenes/input/skillBuffer.ts` 로 분리. */
-    const queueSkill = (id: SkillId) => {
-      this.skillBuf.queue(id, this.time.now);
-      this.flushBufferedSkill();
-    };
-    const onS1 = () => queueSkill("s1");
-    const onS2 = () => queueSkill("s2");
+    const onS1 = () => this.queueSkill("s1");
+    const onS2 = () => this.queueSkill("s2");
     /* v3.0.4 (지시 #7) — 모바일 3/4차기 버튼이 발행하는 input:skill3/4 미수신으로 안 쓰이던 버그 수정 */
-    const onS3 = () => queueSkill("s3");
-    const onS4 = () => queueSkill("s4");
-    const onS5 = () => queueSkill("s5"); // v3.2.0 — 궁극기 (모바일 버튼 공용)
-    const onS5b = () => queueSkill("s5b"); // vc146 (#2) — 제2궁극기 (쿨 2분)
-    /** 버퍼에 담긴 스킬을 지금 발동 가능하면 실행하고 비운다 */
-    this.flushBufferedSkill = () => {
-      this.skillBuf.flush(this.player as unknown as SkillCaster | null, this.time.now);
-    };
+    const onS3 = () => this.queueSkill("s3");
+    const onS4 = () => this.queueSkill("s4");
+    const onS5 = () => this.queueSkill("s5"); // v3.2.0 — 궁극기 (모바일 버튼 공용)
+    const onS5b = () => this.queueSkill("s5b"); // vc146 (#2) — 제2궁극기 (쿨 2분)
     const onRespawn = () => this.respawnPlayer();
     const onDialogueDone = () => this.resumeFromDialogue();
     /* vc143 (#10) — 선택형 대화 (보스전 퇴장 관리인) */
@@ -12054,15 +12059,15 @@ export class WorldScene extends Phaser.Scene {
       // 키보드 공격/스킬 — 이동은 화살표 고정, 액션 키는 키 매핑 따름 (v1.0.4)
       if (Phaser.Input.Keyboard.JustDown(this.keys.SPACE) || Phaser.Input.Keyboard.JustDown(this.keyFor("attack")))
         this.attackQueued = true;
-      if (Phaser.Input.Keyboard.JustDown(this.keyFor("skill1"))) this.player.useSkill1();
-      if (Phaser.Input.Keyboard.JustDown(this.keyFor("skill2"))) this.player.useSkill2();
+      if (Phaser.Input.Keyboard.JustDown(this.keyFor("skill1"))) this.queueSkill("s1");
+      if (Phaser.Input.Keyboard.JustDown(this.keyFor("skill2"))) this.queueSkill("s2");
       /* v3.0.3 — 3차기(V) / 4차기(A): 해금 티어 미달/쿨/MP 무시하고 호출하면 내부에서 무시된다 (v1.0.4 키맵 B→A) */
-      if (Phaser.Input.Keyboard.JustDown(this.keyFor("skill3"))) this.player.useSkill3();
-      if (Phaser.Input.Keyboard.JustDown(this.keyFor("skill4"))) this.player.useSkill4();
+      if (Phaser.Input.Keyboard.JustDown(this.keyFor("skill3"))) this.queueSkill("s3");
+      if (Phaser.Input.Keyboard.JustDown(this.keyFor("skill4"))) this.queueSkill("s4");
       /* v3.2.0 — 5차 궁극기(S): Lv.200 해금, 쿨타임 60초 (v1.0.4 키맵 N→S) */
-      if (Phaser.Input.Keyboard.JustDown(this.keyFor("skill5"))) this.player.useSkill5();
+      if (Phaser.Input.Keyboard.JustDown(this.keyFor("skill5"))) this.queueSkill("s5");
       /* vc146 (#2) — 제2궁극기(Q 기본·재배치 가능): 쿨타임 120초 */
-      if (Phaser.Input.Keyboard.JustDown(this.keyFor("skill5b"))) this.player.useSkill5b();
+      if (Phaser.Input.Keyboard.JustDown(this.keyFor("skill5b"))) this.queueSkill("s5b");
 
       /* v1.0.15 (피드백 #6 씽덕요소) — 감정표현 단축키: Y=♥ 하트 · U=♪ 노래 · H=！ 인사 · N=💢 분노.
        *  메이플식 감정표현 — 캐릭터 머리 위 귀여운 말풍선. 대화/수면 중엔 무시한다. */
@@ -12362,6 +12367,7 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private resetInputState() {
+    this.skillBuf.clear();
     this.touchMove.set(0, 0);
     this.attackQueued = false;
     this.dirOrder.x.length = 0;
@@ -18002,6 +18008,7 @@ export class WorldScene extends Phaser.Scene {
   /* ================= 정리 ================= */
 
   private cleanup() {
+    this.skillBuf.clear();
     /* v1.4.30 (#1 프리즈 방지) — 씬 shutdown 시 보스 풀/타이머를 명시 소멸.
      *  destroyPool은 사망 경로(Boss.die)에서만 돌던 코드였는데, 보스전 도중
      *  씬 재시작(사망 귀환/포탈 이동)이 겹치면 volleyTimer 등이 파괴된 스프라이트를

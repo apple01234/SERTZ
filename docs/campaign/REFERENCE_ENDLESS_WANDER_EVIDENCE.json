@@ -1,0 +1,98 @@
+{
+  "artifact": {
+    "name": "Endless-Wander-v4.2.1-mod-apkvision.apk",
+    "source": "User-provided Google Drive file in this conversation; identified by filename, byte count and SHA-256.",
+    "size_bytes": 376257811,
+    "sha256": "f10db6bf5b44875750dfa69b4bc79e88bb874a10fc64c15d799e3bdb2ed7dce7",
+    "authorization": "User confirmed APK analysis permission in this conversation on 2026-11-17."
+  },
+  "method": {
+    "host": "Linux workspace; Python standard library zipfile, struct, hashlib",
+    "mode": "Static archive inventory and IL2CPP identifier lookup. REA MCP/CLI not available or invoked. APK not installed or launched.",
+    "metadata_version": 31,
+    "metadata_sha256": "87565c5d347fa2eae158c1cab5e9d0a03879311eef53b534064f22f0ab4de14a",
+    "string_heap_offset": 779724,
+    "string_heap_bytes": 2431844
+  },
+  "observations": [
+    {
+      "id": "EW-ARCH-01",
+      "members": 698,
+      "uncompressed_bytes": 511260914,
+      "unity_members": [
+        "assets/bin/Data/Managed/Metadata/global-metadata.dat",
+        "lib/arm64-v8a/libil2cpp.so",
+        "lib/arm64-v8a/libunity.so"
+      ]
+    },
+    {
+      "id": "EW-ASSET-01",
+      "observation": "Eight affix-school bundles are separately named; archive filenames do not prove interaction or loading behavior.",
+      "paths": [
+        "assets/aa/Android/affixes-combustion_assets_all_fa7a038d944f262b97fd9c41a16605f6.bundle",
+        "assets/aa/Android/affixes-cosmos_assets_all_4cecda35c1150c5eb1c54c9a5e86c8a0.bundle",
+        "assets/aa/Android/affixes-ice_assets_all_e5ed4705e46e11ed94f42b0255c84cb5.bundle",
+        "assets/aa/Android/affixes-light_assets_all_89ee11cb91f11441dda4ab270ef3f7a0.bundle",
+        "assets/aa/Android/affixes-mist_assets_all_79fa255a2e8b3d478f95e5d8c753b02a.bundle",
+        "assets/aa/Android/affixes-reinforcement_assets_all_09cfd5797b11e0d54a08cb1fa3815245.bundle",
+        "assets/aa/Android/affixes-sharpness_assets_all_d08211142a8daa6f3fb8e40d81cf3cda.bundle",
+        "assets/aa/Android/affixes-water_assets_all_071a34d36872b9678114a2fcb33b06a5.bundle"
+      ]
+    },
+    {
+      "id": "EW-SYM-01",
+      "symbol": "BufferActionIfRelevant",
+      "member": "assets/bin/Data/Managed/Metadata/global-metadata.dat",
+      "file_offset": 1099931,
+      "observation": "Exact null-terminated identifier in IL2CPP metadata string heap; no method body or runtime behavior inspected."
+    },
+    {
+      "id": "EW-SYM-02",
+      "symbol": "_timeToBufferAction",
+      "member": "assets/bin/Data/Managed/Metadata/global-metadata.dat",
+      "file_offset": 1100944,
+      "observation": "Exact null-terminated identifier in IL2CPP metadata string heap; no method body or runtime behavior inspected."
+    },
+    {
+      "id": "EW-SYM-03",
+      "symbol": "RefreshCharacterSkillCooldownAndCharges",
+      "member": "assets/bin/Data/Managed/Metadata/global-metadata.dat",
+      "file_offset": 1099021,
+      "observation": "Exact null-terminated identifier in IL2CPP metadata string heap; no method body or runtime behavior inspected."
+    },
+    {
+      "id": "EW-SYM-04",
+      "symbol": "SetSkillRemainingCooldown",
+      "member": "assets/bin/Data/Managed/Metadata/global-metadata.dat",
+      "file_offset": 1129624,
+      "observation": "Exact null-terminated identifier in IL2CPP metadata string heap; no method body or runtime behavior inspected."
+    },
+    {
+      "id": "EW-SYM-05",
+      "symbol": "AffixSchool",
+      "member": "assets/bin/Data/Managed/Metadata/global-metadata.dat",
+      "file_offset": 1177487,
+      "observation": "Exact null-terminated identifier in IL2CPP metadata string heap; no method body or runtime behavior inspected."
+    },
+    {
+      "id": "EW-SYM-06",
+      "symbol": "AffixesAndUpgradesBySchool",
+      "member": "assets/bin/Data/Managed/Metadata/global-metadata.dat",
+      "file_offset": 1193729,
+      "observation": "Exact null-terminated identifier in IL2CPP metadata string heap; no method body or runtime behavior inspected."
+    },
+    {
+      "id": "EW-SYM-07",
+      "symbol": "BiElemSynergy",
+      "member": "assets/bin/Data/Managed/Metadata/global-metadata.dat",
+      "file_offset": 1059013,
+      "observation": "Exact null-terminated identifier in IL2CPP metadata string heap; no method body or runtime behavior inspected."
+    }
+  ],
+  "limits": [
+    "The supplied APK is a modified distribution; observations apply to this exact hash, not necessarily the official game.",
+    "No full decompilation, gameplay execution, network observation or original skill timing values.",
+    "No original executable, code, graphics, audio, or asset bundles copied into SERTZ.",
+    "SERTZ uses its existing 300ms input buffer; this value was not recovered from the APK."
+  ]
+}

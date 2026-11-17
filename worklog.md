@@ -4909,3 +4909,13 @@ Stage Summary:
 - Git 비교로 src/public/android/electron/CI 및 주요 패키지·배포 파일이 지정 커밋과 일치함을 확인했다. 보존 RE 파일도 복원 직전과 바이트 동일하다.
 - strict lint 통과. Next 라우트 타입 재생성 후 tsc 통과. 기존 검사 41개 중 39개는 그대로 통과했고, 원래 /root/workspace/CERTZ 절대 경로를 사용하는 검사 2개는 실행 중 경로만 매핑해 통과했다(추적 테스트 파일은 원본 유지).
 - 이번 작업은 소스 복원이다. 새 APK 생성·서명 및 실기기 설치 검증은 수행하지 않았다. 이전 캠페인 검증 기록은 과거 구현에 대한 기록이다.
+
+## Task — Endless Wander 정적 참고 및 전투 입력 개선 (2026-11-17)
+
+- 사용자 제공 Endless Wander 4.2.1 수정 APK의 분석 허가를 확인했다. REA 도구는 연결되지 않아 실행하지 않았으며 Python 표준 라이브러리로 ZIP 구성과 IL2CPP 메타데이터 식별자를 확인했다. 파일 해시·식별자 오프셋·관찰/추론 경계를 docs/campaign/REFERENCE_ENDLESS_WANDER*에 기록했다. APK 실행·원본 코드/아트/음원 편입은 하지 않았다.
+- 기존 300ms SkillInputBuffer를 재사용해 쿨다운 종료 직전 입력을 보관한다. 버퍼를 우회하던 키보드 6종을 터치와 같은 경로로 연결하고, 대화/수면/전환/채팅/패널/텍스트 입력/입력 리셋/씬 정리에서 잔존 예약을 비운다.
+- 충분한 MP가 있을 때 쿨다운 마지막 300ms의 터치 입력을 허용한다. MP 부족·소수 초·접근성 설명을 표시하고 Enter/Space 활성화를 지원한다. 브라우저 검사에서 발견한 Enter→채팅 동시 활성화도 버튼 키 이벤트 전파를 차단해 해결했다.
+- 기존 12개 입력 검사와 비교 후 관련 회귀 검사 16개 통과. 전체 Node 실행은 45개 중 43개 통과, 기존 CERTZ 절대 경로 import 두 파일은 임시 런타임 경로 매핑으로 각각 통과했다. 기존 npm test glob/--test 문제는 변경하지 않았다.
+- Prisma 생성, tsc, 프로덕션 빌드, 변경한 TS/TSX 4개 strict lint 통과. 전체 strict lint는 수정하지 않은 DialogueBox/HUD/UnionPanel의 기존 오류 5개 및 AuthPanel/ChatBox 경고 2개로 실패한다.
+- 프로덕션 standalone 서버의 실제 훈련장과 Chromium에서 입력 예약·쿨다운·단일 MP 차감·키보드·입력 잠금·Enter/Space·MP 부족·844×390 터치를 확인했다. 7개 브라우저 시나리오 통과, 페이지 JavaScript 예외 0개. 재현 스크립트는 scripts/re/verify_skill_input.cjs이며 입력 검사는 월드 진입 뒤 루프를 멈춘 명시적 시각/쿨다운 제어를 사용한다. 실시간 성능·온라인 계정·결제·네이티브 설치 검증으로 일반화하지 않는다.
+- 세이브 형식·콘텐츠·밸런스·버전·런타임 의존성은 유지했다. 대상은 apple01234/SERTZ 하나이며 Godot 포트·운영 배포·main 병합은 수행하지 않았다.
