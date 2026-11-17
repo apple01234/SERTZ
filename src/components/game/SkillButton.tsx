@@ -16,7 +16,8 @@
  *   이렇게 하면 이름 길이와 무관하게 잘리지 않고, 아이콘도 원 안에서 여백을 갖는다.
  */
 "use client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { SKILL_BUFFER_MS } from "@/game/scenes/input/skillBuffer";
 
 type SkillButtonProps = {
   ready: boolean;
@@ -24,6 +25,7 @@ type SkillButtonProps = {
   cdMax?: number;
   label: string;
   mp?: number;
+  currentMp: number;
   icon?: string;
   onDown: () => void;
   children?: React.ReactNode;
@@ -41,6 +43,7 @@ export function SkillButton({
   cdMax,
   label,
   mp,
+  currentMp,
   icon,
   onDown,
   children,
@@ -66,6 +69,12 @@ export function SkillButton({
   }
   const src = iconErr ? prevIcon : icon;
   const showIcon = !!src && !iconErr;
+  const remainingMs = Math.max(0, ((cdMax ?? 0) * cdPct) / 100);
+  const lowMp = currentMp < (mp ?? 0);
+  const canBuffer = !lowMp && remainingMs > 0 && remainingMs <= SKILL_BUFFER_MS;
+  const canPress = !lowMp && (ready || canBuffer);
+  const seconds = remainingMs < 1000 ? (Math.ceil(remainingMs / 100) / 10).toFixed(1) : String(Math.ceil(remainingMs / 1000));
+  const status = lowMp ? "MP 부족" : remainingMs > 0 ? `재사용 대기 ${seconds}초${canBuffer ? " · 입력 예약 가능" : ""}` : "사용 가능";
 
   const ring = ready
     ? ult
@@ -79,16 +88,20 @@ export function SkillButton({
     /* 바깥 래퍼가 세로 배치를 담당 — 원(버튼) + 그 아래 라벨 */
     <div className="pointer-events-none flex flex-col items-center gap-[3px]">
       <button
-        aria-label={label}
-        disabled={!ready}
+        aria-label={`${label} · ${status}`}
+        title={`${label} · ${status}`}
+        disabled={!canPress}
         className={`pointer-events-auto relative flex touch-none select-none items-center justify-center overflow-hidden rounded-full border-2 text-white shadow-lg transition-transform active:scale-90 ${ring} ${
           tutGlow ? "ring-4 ring-amber-300/90 animate-pulse" : ""
         }`}
         style={{ width: "100%", height: "100%" }}
         onPointerDown={(e) => {
           e.preventDefault();
-          if (ready) onDown();
+          if (canPress && e.button === 0) onDown();
         }}
+        onClick={(e) => { if (canPress && e.detail === 0) onDown(); }}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") e.stopPropagation(); }}
+        onKeyUp={(e) => { if (e.key === "Enter" || e.key === " ") e.stopPropagation(); }}
       >
         {/* 아이콘 — 원 안에서 여백을 두고(contain) 가운데 정렬.
          *  종전엔 object-cover 로 꽉 채워 이름과 겹쳤다. 이제 이름은 버튼 밖에 있다.
@@ -129,15 +142,15 @@ export function SkillButton({
               style={{ clipPath: `inset(${100 - cdPct}% 0 0 0)` }}
             />
             <span className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center text-[11px] font-black text-white [text-shadow:0_1px_3px_#000]">
-              {Math.ceil(((cdMax ?? 0) * cdPct) / 100 / 1000) || ""}
+              {remainingMs > 0 ? seconds : ""}
             </span>
           </>
         )}
 
         {/* MP — 원 안 아래쪽 작은 배지 (이름은 밖으로 나갔으므로 공간 여유) */}
         {typeof mp === "number" && mp > 0 && (
-          <span className="pointer-events-none absolute bottom-[3px] left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded bg-black/65 px-1 text-[7px] font-bold leading-[10px] text-[#bcd0ff]">
-            {mp}MP
+          <span className={`pointer-events-none absolute bottom-[3px] left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded bg-black/65 px-1 text-[7px] font-bold leading-[10px] ${lowMp ? "text-rose-200" : "text-[#bcd0ff]"}`}>
+            {lowMp ? "MP 부족" : `${mp}MP`}
           </span>
         )}
 

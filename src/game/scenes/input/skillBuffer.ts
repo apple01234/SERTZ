@@ -31,6 +31,11 @@ export type SkillId = "s1" | "s2" | "s3" | "s4" | "s5" | "s5b";
 /** 입력 보관 한도. 이 시간을 넘긴 입력은 낡은 것으로 보고 버린다. */
 export const SKILL_BUFFER_MS = 300;
 
+const COOLDOWN_FIELD = {
+  s1: "skill1Cd", s2: "skill2Cd", s3: "skill3Cd",
+  s4: "skill4Cd", s5: "skill5Cd", s5b: "skill5bCd",
+} as const;
+
 /** 버퍼에 담긴 요청 */
 type Buffered = { id: SkillId; at: number };
 
@@ -40,6 +45,12 @@ type Buffered = { id: SkillId; at: number };
  */
 export interface SkillCaster {
   state: string;
+  skill1Cd: number;
+  skill2Cd: number;
+  skill3Cd: number;
+  skill4Cd: number;
+  skill5Cd: number;
+  skill5bCd: number;
   useSkill1(): void;
   useSkill2(): void;
   useSkill3(): void;
@@ -70,7 +81,7 @@ export class SkillInputBuffer {
    * 지금 발동 가능하면 실행하고 비운다.
    * @param caster 현재 플레이어 (없으면 아무것도 하지 않는다 — 씬 미준비 상태)
    * @param now    현재 시각 (`scene.time.now`)
-   * @returns      실제로 발동했으면 true
+   * @returns      발동 메서드를 호출했으면 true (MP·해금 조건은 Player가 재검사)
    */
   flush(caster: SkillCaster | null, now: number): boolean {
     if (!this.buffered || !caster) return false;
@@ -78,7 +89,8 @@ export class SkillInputBuffer {
       this.buffered = null; // 만료 — 낡은 입력은 버린다
       return false;
     }
-    if (caster.state !== "idle") return false; // 아직 모션 중 — 다음 프레임에 재시도
+    // 쿨다운 직전 입력도 모션 중 입력처럼 보관한다. 실제 발동 조건은 Player가 다시 검사한다.
+    if (caster.state !== "idle" || caster[COOLDOWN_FIELD[this.buffered.id]] > 0) return false;
     const id = this.buffered.id;
     this.buffered = null; // 중복 발동 방지 — 실행 전에 비운다
     switch (id) {

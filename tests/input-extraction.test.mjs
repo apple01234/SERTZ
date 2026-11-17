@@ -58,7 +58,7 @@ test("fillKeyObjects 는 다중 글자 코드(UP/ESC 등)를 직접 등록하지
 
 function mockCaster(state = "idle") {
   const calls = [];
-  const c = { state, calls };
+  const c = { state, calls, skill1Cd: 0, skill2Cd: 0, skill3Cd: 0, skill4Cd: 0, skill5Cd: 0, skill5bCd: 0 };
   const names = { s1: "useSkill1", s2: "useSkill2", s3: "useSkill3", s4: "useSkill4", s5: "useSkill5", s5b: "useSkill5b" };
   for (const [id, fn] of Object.entries(names)) {
     c[fn] = () => calls.push(id);
@@ -149,4 +149,39 @@ test("clear() 는 대기 입력을 제거한다", () => {
   const p = mockCaster("idle");
   assert.equal(buf.flush(p, 1000), false);
   assert.deepEqual(p.calls, []);
+});
+
+test("스킬 6종은 쿨다운이 끝날 때까지 입력을 보관하고 한 번만 발동한다", () => {
+  for (const [id, cooldown] of Object.entries({ s1: "skill1Cd", s2: "skill2Cd", s3: "skill3Cd", s4: "skill4Cd", s5: "skill5Cd", s5b: "skill5bCd" })) {
+    const buf = new SkillInputBuffer();
+    const p = mockCaster();
+    p[cooldown] = 200;
+    buf.queue(id, 1000);
+    assert.equal(buf.flush(p, 1000), false, id);
+    assert.equal(buf.pending, id);
+    assert.deepEqual(p.calls, []);
+    p[cooldown] = 0;
+    assert.equal(buf.flush(p, 1200), true, id);
+    assert.equal(buf.flush(p, 1201), false);
+    assert.deepEqual(p.calls, [id]);
+  }
+});
+
+test("쿨다운 대기 중에도 300ms 경계와 만료를 지키며 최신 입력을 우선한다", () => {
+  const buf = new SkillInputBuffer();
+  const p = mockCaster();
+  p.skill2Cd = 200;
+  buf.queue("s2", 1000);
+  assert.equal(buf.flush(p, 1200), false);
+  p.skill2Cd = 0;
+  assert.equal(buf.flush(p, 1300), true);
+  buf.queue("s2", 2000);
+  assert.equal(buf.flush(p, 2301), false);
+  p.skill2Cd = 100;
+  buf.queue("s2", 3000);
+  buf.queue("s1", 3050);
+  assert.equal(buf.flush(p, 3050), true);
+  p.skill2Cd = 0;
+  assert.equal(buf.flush(p, 3100), false);
+  assert.deepEqual(p.calls, ["s2", "s1"]);
 });
