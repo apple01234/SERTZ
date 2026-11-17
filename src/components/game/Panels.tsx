@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { ElementGuide, SetChangePreview } from "./BuildInfo";
 import { EventBus, type PanelKind, type RpgState, type HudState, type QuestLogState } from "./EventBus";
 import {
   ITEMS, BUFF_DEFS, PET_DEFS, COSMETIC_DEFS, UPGRADE_MAX, UPGRADE_RATES, upgradeCost, autoAllocPlan,
@@ -2452,6 +2453,7 @@ export function InventoryPanel({ rpg, onClose }: { rpg: RpgState; onClose: () =>
                               </span>
                             );
                           })()}
+                          <SetChangePreview rpg={rpg} candidate={s.k} />
                           <PotViewLines pot={rpg.potentials?.[s.k]} />
                         </div>
                       </div>
@@ -3854,7 +3856,7 @@ export function GamePanels({
   if (panel === "content") return <ContentPanel rpg={rpg} onClose={onClose} />; // v1.0.8 — 무한 콘텐츠 허브
   if (panel === "rank") return <RankingPanel rpg={rpg} onClose={onClose} />; // v1.3.1 복원 — 랭킹창 + 랭커 특전 (93b3fbf에서 유실)
   if (panel === "opt") return <KeymapPanel onClose={onClose} />;
-  if (panel === "guide") return <GuidePanel onClose={onClose} />; // v1.4.12 (#16) — 이그니의 UI 기능 안내
+  if (panel === "guide") return <GuidePanel rpg={rpg} onClose={onClose} />; // v1.4.12 (#16) — 이그니의 UI 기능 안내
   if (panel === "home") return <HomePanel rpg={rpg} onClose={onClose} />; // vc178 — 집 꾸미기
   return null;
 }
@@ -3902,7 +3904,7 @@ const GUIDE_SECTIONS: { area: string; icon: string; items: { name: string; desc:
       { name: "HP 물약 (빨강, F)", desc: "체력을 회복. 가방에서 다른 물약을 퀵슬롯에 장착할 수 있어." },
       { name: "MP 물약 (파랑, D)", desc: "마력을 회복. 스킬을 자주 쓰는 직업은 필수!" },
       { name: "자동 버튼 (봇)", desc: "여기서도 자동전투 토글이 가능해. 상태는 '자동중' 표시로 보인다." },
-      { name: "원소 반응 (유리 상성)", desc: "유리한 원소로 때리면 '약점!' 데미지에 더해 특수 반응이 폭발해! 화염>자연=폭발(주변 스플래시)·자연>냉기=결빙(둔화)·냉기>화염=융해·빛↔어둠=소멸(기절). 직업마다 다른 원소를 가진다!" },
+      { name: "원소 상성과 반응", desc: "현재 직업의 공격 원소와 상대별 상성은 위 표나 스탯 창(T)에서 확인해. 기본 상성 배율과 반응 가능 여부는 별개이며, 반응은 재사용 대기가 있어." },
     ],
   },
   {
@@ -3929,7 +3931,7 @@ const GUIDE_SECTIONS: { area: string; icon: string; items: { name: string; desc:
   },
 ];
 
-function GuidePanel({ onClose }: { onClose: () => void }) {
+function GuidePanel({ rpg, onClose }: { rpg: RpgState; onClose: () => void }) {
   useEscClose(onClose);
   return (
     <div className="pointer-events-auto fixed inset-0 z-40 flex items-center justify-center bg-black/55" onPointerDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
@@ -3942,6 +3944,7 @@ function GuidePanel({ onClose }: { onClose: () => void }) {
           "화면의 모든 UI가 무슨 기능을 하는지 알려 줄게. 헷갈릴 때마다 이 창을 열어 봐!"
         </p>
         <div className="mt-2 min-h-0 flex-1 space-y-2.5 overflow-y-auto pr-0.5">
+          <ElementGuide cls={rpg.cls} />
           {GUIDE_SECTIONS.map((sec) => (
             <div key={sec.area}>
               <p className="text-[11px] font-black text-amber-200">{sec.icon} {sec.area}</p>
@@ -5135,6 +5138,7 @@ function StatPanel({ rpg, hud, onClose }: { rpg: RpgState; hud: HudState; onClos
             </div>
           ))}
         </div>
+        <ElementGuide cls={rpg.cls} />
         <p className="mb-2.5 rounded-md border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-[10px] leading-relaxed text-white/55">
           공격력 = 기본 + 무기/강화 + 힘 스탯 + 클래스 경로 보너스 (+ 버프) · 크리티컬 = 기본 + 장신구 + 민첩 + 클래스 · v3.0.24 — 이동속도 = 기본(225) + 민첩 0.5%/점 + 강화 별 합계 0.5%/성 (강화·스텟에 투자하면 빨라진다)
         </p>

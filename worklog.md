@@ -4919,3 +4919,12 @@ Stage Summary:
 - Prisma 생성, tsc, 프로덕션 빌드, 변경한 TS/TSX 4개 strict lint 통과. 전체 strict lint는 수정하지 않은 DialogueBox/HUD/UnionPanel의 기존 오류 5개 및 AuthPanel/ChatBox 경고 2개로 실패한다.
 - 프로덕션 standalone 서버의 실제 훈련장과 Chromium에서 입력 예약·쿨다운·단일 MP 차감·키보드·입력 잠금·Enter/Space·MP 부족·844×390 터치를 확인했다. 7개 브라우저 시나리오 통과, 페이지 JavaScript 예외 0개. 재현 스크립트는 scripts/re/verify_skill_input.cjs이며 입력 검사는 월드 진입 뒤 루프를 멈춘 명시적 시각/쿨다운 제어를 사용한다. 실시간 성능·온라인 계정·결제·네이티브 설치 검증으로 일반화하지 않는다.
 - 세이브 형식·콘텐츠·밸런스·버전·런타임 의존성은 유지했다. 대상은 apple01234/SERTZ 하나이며 Godot 포트·운영 배포·main 병합은 수행하지 않았다.
+
+## Task — Endless Wander 구조 분석 후속 및 조합 판단 UI (2026-11-17)
+
+- 같은 허가된 APK의 IL2CPP v31 선언을 표준 라이브러리로 파싱했다. 게임 어셈블리 타입 2,681개에서 관련 타입 13개·열거형 2개를 선정하고 토큰/범위/메서드 소속/인자를 검증했다. 처음 식별자 7개를 메서드·필드·프로퍼티·타입·열거형 멤버로 각각 연결했다. SetSkillRemainingCooldown은 적 AI 이벤트 종류이며 BiElemSynergy는 방 보상 종류라는 점도 명시했다.
+- 재현 스크립트 scripts/re/inspect_endless_metadata.py와 해시·오프셋·소속을 담은 REFERENCE_ENDLESS_WANDER_STRUCTURE.json을 추가했다. 시전 전/명중/시전 후 강화 선언, 장착/해제/효과 갱신 선언, 복합 원소 설정, 적의 개별/공통 쿨다운 필드를 보고서에 연결했다. 원본 메서드 본문·실행 순서·런타임 수치는 해독하거나 검증한 것으로 표시하지 않는다. REA 엔진 실행/설치, APK 설치/실행, 원본 코드·에셋 편입도 없다.
+- 이미 있는 activeSetBonus를 읽는 무기/방어구 교체 전 세트 활성·손실 안내를 가방에 추가했다. 선택만으로 장비/재화/세이브를 바꾸지 않는다. 같은 ElementGuide를 스탯/도움말에 연결하고 실제 직업 계열·9원소 상성·반응 함수를 사용한다. 기본 배율과 반응 가능을 분리하고 오래된 고정 도움말 예시를 교체했다.
+- npm test의 --test/glob 오류와 두 검사 파일의 절대 import를 수정했다. 임시 경로 매핑 없이 npm test 49/49 통과. 관련 렌더/입력 검사 20개, tsc, 프로덕션 빌드, 변경 TS/TSX 6개 strict lint 통과. 수정하지 않은 파일의 전체 린트 오류 5개/경고 2개는 유지된 한계다.
+- Chromium/standalone 실제 훈련장 검사 10개 통과, 페이지 JavaScript 예외 0개. 직업 변경 시 9원소 표 갱신, 844×390 도움말, 장비 미교체 상태의 세트 획득·손실을 확인하고 캡처했다. 입력 검사는 명시적 쿨다운 제어, 조합 UI 검사는 루프 재개 후 실제 DOM을 사용한다. 성능·운영 계정·네이티브 설치 검증으로 일반화하지 않는다.
+- 원래 데미지/쿨다운/성장 수치·세이브 형식·에셋·런타임 의존성을 유지했다. 기존 reference/endless-wander-improvements 브랜치와 PR #1에 후속 커밋을 추가하며 main 병합·운영 배포는 수행하지 않는다.

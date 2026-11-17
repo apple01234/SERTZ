@@ -1,0 +1,2503 @@
+{
+  "artifact": {
+    "name": "Endless-Wander-v4.2.1.apk",
+    "sha256": "f10db6bf5b44875750dfa69b4bc79e88bb874a10fc64c15d799e3bdb2ed7dce7",
+    "size_bytes": 376257811
+  },
+  "method": "Python stdlib ZIP and IL2CPP v31 metadata declaration parsing; no REA engine, native code, method bodies or gameplay executed",
+  "metadata_sha256": "87565c5d347fa2eae158c1cab5e9d0a03879311eef53b534064f22f0ab4de14a",
+  "tables": {
+    "types": 18381,
+    "methods": 119050,
+    "fields": 75996,
+    "properties": 23300,
+    "images": 140
+  },
+  "scope": {
+    "assembly": "Assembly-CSharp.dll",
+    "type_start": 1693,
+    "type_count": 2681
+  },
+  "validation": "Table bounds, exact string boundaries, selected type/method/field tokens, method ownership and parameter ranges asserted",
+  "types": [
+    {
+      "id": "EW-TYPE-2093",
+      "name": "Run.RunGeneration.RoomRewards.RewardSchool",
+      "type_index": 2093,
+      "offset": 12190556,
+      "token": "0x2000191",
+      "kind": "enum",
+      "also_in_addressables_link_xml": false,
+      "fields": [
+        {
+          "name": "value__",
+          "token": "0x4000660",
+          "offset": 10118312
+        },
+        {
+          "name": "AnySchool",
+          "token": "0x4000661",
+          "offset": 10118324
+        },
+        {
+          "name": "MainSchool",
+          "token": "0x4000662",
+          "offset": 10118336
+        },
+        {
+          "name": "FirstInBuild",
+          "token": "0x4000663",
+          "offset": 10118348
+        },
+        {
+          "name": "InBuild",
+          "token": "0x4000664",
+          "offset": 10118360
+        },
+        {
+          "name": "NotInBuild",
+          "token": "0x4000665",
+          "offset": 10118372
+        },
+        {
+          "name": "BiElemSynergy",
+          "token": "0x4000666",
+          "offset": 10118384
+        },
+        {
+          "name": "OtherSchool",
+          "token": "0x4000667",
+          "offset": 10118396
+        }
+      ],
+      "properties": [],
+      "methods": []
+    },
+    {
+      "id": "EW-TYPE-2112",
+      "name": "Run.RunGeneration.RoomRewards.RunBonuses.Controllers.RunBonusAffixSlotUpgradeController",
+      "type_index": 2112,
+      "offset": 12192228,
+      "token": "0x20001a4",
+      "kind": "type",
+      "also_in_addressables_link_xml": false,
+      "fields": [
+        {
+          "name": "<SkillIndex>k__BackingField",
+          "token": "0x40006ac",
+          "offset": 10119224
+        },
+        {
+          "name": "<AffixIndex>k__BackingField",
+          "token": "0x40006ad",
+          "offset": 10119236
+        }
+      ],
+      "properties": [
+        {
+          "name": "SkillIndex",
+          "token": "0x1700024b",
+          "offset": 3271624
+        },
+        {
+          "name": "AffixIndex",
+          "token": "0x1700024c",
+          "offset": 3271644
+        }
+      ],
+      "methods": [
+        {
+          "name": "ToSerializable",
+          "parameters": [],
+          "token": "0x6000900",
+          "offset": 4218612
+        }
+      ]
+    },
+    {
+      "id": "EW-TYPE-2340",
+      "name": "Run.Fighters.Player.PlayerEntity",
+      "type_index": 2340,
+      "offset": 12212292,
+      "token": "0x200027a",
+      "kind": "type",
+      "also_in_addressables_link_xml": false,
+      "fields": [
+        {
+          "name": "VERY",
+          "token": "0x4000a5c",
+          "offset": 10130552
+        },
+        {
+          "name": "<Fighter>k__BackingField",
+          "token": "0x4000a5d",
+          "offset": 10130564
+        },
+        {
+          "name": "<RbMovement>k__BackingField",
+          "token": "0x4000a5e",
+          "offset": 10130576
+        },
+        {
+          "name": "<NavMeshMovement>k__BackingField",
+          "token": "0x4000a5f",
+          "offset": 10130588
+        },
+        {
+          "name": "<NavMeshAgent>k__BackingField",
+          "token": "0x4000a60",
+          "offset": 10130600
+        },
+        {
+          "name": "_characterAnimator",
+          "token": "0x4000a61",
+          "offset": 10130612
+        },
+        {
+          "name": "_playerInput",
+          "token": "0x4000a62",
+          "offset": 10130624
+        },
+        {
+          "name": "<Inputs>k__BackingField",
+          "token": "0x4000a63",
+          "offset": 10130636
+        },
+        {
+          "name": "<Loot>k__BackingField",
+          "token": "0x4000a64",
+          "offset": 10130648
+        },
+        {
+          "name": "<Sequence>k__BackingField",
+          "token": "0x4000a65",
+          "offset": 10130660
+        },
+        {
+          "name": "_timeToBufferAction",
+          "token": "0x4000a66",
+          "offset": 10130672
+        },
+        {
+          "name": "_infusionFxParticle",
+          "token": "0x4000a67",
+          "offset": 10130684
+        },
+        {
+          "name": "_affixFxParticle",
+          "token": "0x4000a68",
+          "offset": 10130696
+        },
+        {
+          "name": "_fountainFxParticle",
+          "token": "0x4000a69",
+          "offset": 10130708
+        },
+        {
+          "name": "_upgradeParticle",
+          "token": "0x4000a6a",
+          "offset": 10130720
+        },
+        {
+          "name": "_reviveShieldParticle",
+          "token": "0x4000a6b",
+          "offset": 10130732
+        },
+        {
+          "name": "_roomEndCelebrationSound",
+          "token": "0x4000a6c",
+          "offset": 10130744
+        },
+        {
+          "name": "_characterSwapSound",
+          "token": "0x4000a6d",
+          "offset": 10130756
+        },
+        {
+          "name": "_playerCharacterSwapped",
+          "token": "0x4000a6e",
+          "offset": 10130768
+        },
+        {
+          "name": "_currentPlayerCharacter",
+          "token": "0x4000a6f",
+          "offset": 10130780
+        },
+        {
+          "name": "_interactionActions",
+          "token": "0x4000a70",
+          "offset": 10130792
+        },
+        {
+          "name": "_indicatorTarget",
+          "token": "0x4000a71",
+          "offset": 10130804
+        },
+        {
+          "name": "_bufferedAction",
+          "token": "0x4000a72",
+          "offset": 10130816
+        },
+        {
+          "name": "<OnInteractUsed>k__BackingField",
+          "token": "0x4000a73",
+          "offset": 10130828
+        },
+        {
+          "name": "<SequenceCurrentIndex>k__BackingField",
+          "token": "0x4000a74",
+          "offset": 10130840
+        },
+        {
+          "name": "<CurrentRunBonuses>k__BackingField",
+          "token": "0x4000a75",
+          "offset": 10130852
+        },
+        {
+          "name": "<CharacterSkill>k__BackingField",
+          "token": "0x4000a76",
+          "offset": 10130864
+        },
+        {
+          "name": "<CharacterSkillCooldown>k__BackingField",
+          "token": "0x4000a77",
+          "offset": 10130876
+        },
+        {
+          "name": "<CharacterSkillCurrentCooldown>k__BackingField",
+          "token": "0x4000a78",
+          "offset": 10130888
+        },
+        {
+          "name": "<CharacterSkillCharges>k__BackingField",
+          "token": "0x4000a79",
+          "offset": 10130900
+        },
+        {
+          "name": "<AvailableCharacterSkillCharges>k__BackingField",
+          "token": "0x4000a7a",
+          "offset": 10130912
+        },
+        {
+          "name": "_characterSkillCooldownHandler",
+          "token": "0x4000a7b",
+          "offset": 10130924
+        },
+        {
+          "name": "<OnCharacterSkillEquipped>k__BackingField",
+          "token": "0x4000a7c",
+          "offset": 10130936
+        },
+        {
+          "name": "<OnBiElemSkillEquipped>k__BackingField",
+          "token": "0x4000a7d",
+          "offset": 10130948
+        },
+        {
+          "name": "<BiElemSkill>k__BackingField",
+          "token": "0x4000a7e",
+          "offset": 10130960
+        },
+        {
+          "name": "<BiElemSkillCooldown>k__BackingField",
+          "token": "0x4000a7f",
+          "offset": 10130972
+        },
+        {
+          "name": "<BiElemSkillCurrentCooldown>k__BackingField",
+          "token": "0x4000a80",
+          "offset": 10130984
+        },
+        {
+          "name": "<BiElemSkillCharges>k__BackingField",
+          "token": "0x4000a81",
+          "offset": 10130996
+        },
+        {
+          "name": "_biElemSkillCooldownHandler",
+          "token": "0x4000a82",
+          "offset": 10131008
+        },
+        {
+          "name": "<AvailableBiElemSkillCharges>k__BackingField",
+          "token": "0x4000a83",
+          "offset": 10131020
+        }
+      ],
+      "properties": [
+        {
+          "name": "Fighter",
+          "token": "0x1700030c",
+          "offset": 3275484
+        },
+        {
+          "name": "RbMovement",
+          "token": "0x1700030d",
+          "offset": 3275504
+        },
+        {
+          "name": "NavMeshMovement",
+          "token": "0x1700030e",
+          "offset": 3275524
+        },
+        {
+          "name": "NavMeshAgent",
+          "token": "0x1700030f",
+          "offset": 3275544
+        },
+        {
+          "name": "Inputs",
+          "token": "0x17000310",
+          "offset": 3275564
+        },
+        {
+          "name": "Loot",
+          "token": "0x17000311",
+          "offset": 3275584
+        },
+        {
+          "name": "Sequence",
+          "token": "0x17000312",
+          "offset": 3275604
+        },
+        {
+          "name": "TargetingType",
+          "token": "0x17000313",
+          "offset": 3275624
+        },
+        {
+          "name": "CurrentCutscenePlayerCharacter",
+          "token": "0x17000314",
+          "offset": 3275644
+        },
+        {
+          "name": "OnInteractUsed",
+          "token": "0x17000315",
+          "offset": 3275664
+        },
+        {
+          "name": "SequenceCurrentIndex",
+          "token": "0x17000316",
+          "offset": 3275684
+        },
+        {
+          "name": "CurrentRunBonuses",
+          "token": "0x17000317",
+          "offset": 3275704
+        },
+        {
+          "name": "CharacterSkill",
+          "token": "0x17000318",
+          "offset": 3275724
+        },
+        {
+          "name": "CharacterSkillCooldown",
+          "token": "0x17000319",
+          "offset": 3275744
+        },
+        {
+          "name": "CharacterSkillCurrentCooldown",
+          "token": "0x1700031a",
+          "offset": 3275764
+        },
+        {
+          "name": "CharacterSkillCharges",
+          "token": "0x1700031b",
+          "offset": 3275784
+        },
+        {
+          "name": "AvailableCharacterSkillCharges",
+          "token": "0x1700031c",
+          "offset": 3275804
+        },
+        {
+          "name": "OnCharacterSkillEquipped",
+          "token": "0x1700031d",
+          "offset": 3275824
+        },
+        {
+          "name": "OnBiElemSkillEquipped",
+          "token": "0x1700031e",
+          "offset": 3275844
+        },
+        {
+          "name": "BiElemSkill",
+          "token": "0x1700031f",
+          "offset": 3275864
+        },
+        {
+          "name": "BiElemSkillCooldown",
+          "token": "0x17000320",
+          "offset": 3275884
+        },
+        {
+          "name": "BiElemSkillCurrentCooldown",
+          "token": "0x17000321",
+          "offset": 3275904
+        },
+        {
+          "name": "BiElemSkillCharges",
+          "token": "0x17000322",
+          "offset": 3275924
+        },
+        {
+          "name": "AvailableBiElemSkillCharges",
+          "token": "0x17000323",
+          "offset": 3275944
+        }
+      ],
+      "methods": [
+        {
+          "name": "TestDescriptions",
+          "parameters": [],
+          "token": "0x6000e4b",
+          "offset": 4267392
+        },
+        {
+          "name": "Awake",
+          "parameters": [],
+          "token": "0x6000e4c",
+          "offset": 4267428
+        },
+        {
+          "name": "Start",
+          "parameters": [],
+          "token": "0x6000e4d",
+          "offset": 4267464
+        },
+        {
+          "name": "LateUpdate",
+          "parameters": [],
+          "token": "0x6000e4e",
+          "offset": 4267500
+        },
+        {
+          "name": "OnDisable",
+          "parameters": [],
+          "token": "0x6000e4f",
+          "offset": 4267536
+        },
+        {
+          "name": "UnequipCurrentCharacter",
+          "parameters": [],
+          "token": "0x6000e50",
+          "offset": 4267572
+        },
+        {
+          "name": "EquipCharacter",
+          "parameters": [
+            "newCharacter"
+          ],
+          "token": "0x6000e51",
+          "offset": 4267608
+        },
+        {
+          "name": "EquipBiElemSkill",
+          "parameters": [
+            "biElemSkill"
+          ],
+          "token": "0x6000e52",
+          "offset": 4267644
+        },
+        {
+          "name": "UpdateCharacterSkill",
+          "parameters": [
+            "character"
+          ],
+          "token": "0x6000e53",
+          "offset": 4267680
+        },
+        {
+          "name": "RefreshCharacterSkillCooldownAndCharges",
+          "parameters": [],
+          "token": "0x6000e54",
+          "offset": 4267716
+        },
+        {
+          "name": "UpdateCharacterStatuses",
+          "parameters": [
+            "character"
+          ],
+          "token": "0x6000e55",
+          "offset": 4267752
+        },
+        {
+          "name": "InitializeAttributes",
+          "parameters": [],
+          "token": "0x6000e56",
+          "offset": 4267788
+        },
+        {
+          "name": "UpdateGearSetBonuses",
+          "parameters": [],
+          "token": "0x6000e57",
+          "offset": 4267824
+        },
+        {
+          "name": "UpdateBattlePetsBonuses",
+          "parameters": [],
+          "token": "0x6000e58",
+          "offset": 4267860
+        },
+        {
+          "name": "InitializeClassSequence",
+          "parameters": [
+            "character"
+          ],
+          "token": "0x6000e59",
+          "offset": 4267896
+        },
+        {
+          "name": "InitializeForHub",
+          "parameters": [],
+          "token": "0x6000e5a",
+          "offset": 4267932
+        },
+        {
+          "name": "InitializeForNewRun",
+          "parameters": [
+            "runSpecifics"
+          ],
+          "token": "0x6000e5b",
+          "offset": 4267968
+        },
+        {
+          "name": "UpdatePlayerAttributes",
+          "parameters": [],
+          "token": "0x6000e5c",
+          "offset": 4268004
+        },
+        {
+          "name": "InitializeSequenceForRun",
+          "parameters": [
+            "runSpecifics"
+          ],
+          "token": "0x6000e5d",
+          "offset": 4268040
+        },
+        {
+          "name": "RestoreCurrentRunState",
+          "parameters": [
+            "serializedOngoingRunState",
+            "runSetup"
+          ],
+          "token": "0x6000e5e",
+          "offset": 4268076
+        },
+        {
+          "name": "InitializeSequenceFromSavedState",
+          "parameters": [
+            "serializedOngoingRunState",
+            "runSpecifics"
+          ],
+          "token": "0x6000e5f",
+          "offset": 4268112
+        },
+        {
+          "name": "SetInitialLevelPosition",
+          "parameters": [
+            "position"
+          ],
+          "token": "0x6000e60",
+          "offset": 4268148
+        },
+        {
+          "name": "HandleTargetIndicator",
+          "parameters": [],
+          "token": "0x6000e61",
+          "offset": 4268184
+        },
+        {
+          "name": "SetIndicatorTarget",
+          "parameters": [
+            "target"
+          ],
+          "token": "0x6000e62",
+          "offset": 4268220
+        },
+        {
+          "name": "MoveInDirection",
+          "parameters": [
+            "direction"
+          ],
+          "token": "0x6000e63",
+          "offset": 4268256
+        },
+        {
+          "name": "StopPlayerActions",
+          "parameters": [],
+          "token": "0x6000e64",
+          "offset": 4268292
+        },
+        {
+          "name": "HandleRoomEndAnimation",
+          "parameters": [],
+          "token": "0x6000e65",
+          "offset": 4268328
+        },
+        {
+          "name": "SetSprintState",
+          "parameters": [
+            "isSprinting"
+          ],
+          "token": "0x6000e66",
+          "offset": 4268364
+        },
+        {
+          "name": "ChangeMovementHandlerToRb",
+          "parameters": [],
+          "token": "0x6000e67",
+          "offset": 4268400
+        },
+        {
+          "name": "ChangeMovementHandlerToNavmesh",
+          "parameters": [],
+          "token": "0x6000e68",
+          "offset": 4268436
+        },
+        {
+          "name": "UseInteract",
+          "parameters": [],
+          "token": "0x6000e69",
+          "offset": 4268472
+        },
+        {
+          "name": "UseCharacterSkill",
+          "parameters": [
+            "direction"
+          ],
+          "token": "0x6000e6a",
+          "offset": 4268508
+        },
+        {
+          "name": "UseBiElemSkill",
+          "parameters": [
+            "direction"
+          ],
+          "token": "0x6000e6b",
+          "offset": 4268544
+        },
+        {
+          "name": "RegisterNewInteractAction",
+          "parameters": [
+            "action",
+            "interactionType"
+          ],
+          "token": "0x6000e6c",
+          "offset": 4268580
+        },
+        {
+          "name": "UpdateInteractButton",
+          "parameters": [],
+          "token": "0x6000e6d",
+          "offset": 4268616
+        },
+        {
+          "name": "RemoveSimilarInteractActions",
+          "parameters": [
+            "action",
+            "updateButton"
+          ],
+          "token": "0x6000e6e",
+          "offset": 4268652
+        },
+        {
+          "name": "ClearInteractActions",
+          "parameters": [],
+          "token": "0x6000e6f",
+          "offset": 4268688
+        },
+        {
+          "name": "UseCurrentSkill",
+          "parameters": [
+            "direction"
+          ],
+          "token": "0x6000e70",
+          "offset": 4268724
+        },
+        {
+          "name": "UseCurrentSkill",
+          "parameters": [
+            "direction",
+            "targetingType"
+          ],
+          "token": "0x6000e71",
+          "offset": 4268760
+        },
+        {
+          "name": "GetMainSkillDirection",
+          "parameters": [
+            "skill",
+            "direction",
+            "targetingType"
+          ],
+          "token": "0x6000e72",
+          "offset": 4268796
+        },
+        {
+          "name": "TryUseCurrentSkill",
+          "parameters": [
+            "direction"
+          ],
+          "token": "0x6000e73",
+          "offset": 4268832
+        },
+        {
+          "name": "CurrentActionFinishedBehaviour",
+          "parameters": [
+            "skillContext"
+          ],
+          "token": "0x6000e74",
+          "offset": 4268868
+        },
+        {
+          "name": "TryUseSkill",
+          "parameters": [
+            "skillContext",
+            "direction",
+            "targetingTypeOverride"
+          ],
+          "token": "0x6000e75",
+          "offset": 4268904
+        },
+        {
+          "name": "StartCharacterSkillCooldown",
+          "parameters": [],
+          "token": "0x6000e76",
+          "offset": 4268940
+        },
+        {
+          "name": "ObtainCharacterSkillCharge",
+          "parameters": [
+            "amount"
+          ],
+          "token": "0x6000e77",
+          "offset": 4268976
+        },
+        {
+          "name": "ReduceCharacterSkillCurrentCooldown",
+          "parameters": [
+            "amount"
+          ],
+          "token": "0x6000e78",
+          "offset": 4269012
+        },
+        {
+          "name": "ResetCharacterSkillCharges",
+          "parameters": [],
+          "token": "0x6000e79",
+          "offset": 4269048
+        },
+        {
+          "name": "StartBiElemSkillCooldown",
+          "parameters": [],
+          "token": "0x6000e7a",
+          "offset": 4269084
+        },
+        {
+          "name": "BufferActionIfRelevant",
+          "parameters": [
+            "skillContext",
+            "direction",
+            "targetingType"
+          ],
+          "token": "0x6000e7b",
+          "offset": 4269120
+        },
+        {
+          "name": "PlayInfusionAnimation",
+          "parameters": [
+            "school"
+          ],
+          "token": "0x6000e7c",
+          "offset": 4269156
+        },
+        {
+          "name": "PlayAffixLootAnimation",
+          "parameters": [
+            "school"
+          ],
+          "token": "0x6000e7d",
+          "offset": 4269192
+        },
+        {
+          "name": "PlaySkillLootAnimation",
+          "parameters": [],
+          "token": "0x6000e7e",
+          "offset": 4269228
+        },
+        {
+          "name": "PlayUpgradeLootAnimation",
+          "parameters": [],
+          "token": "0x6000e7f",
+          "offset": 4269264
+        },
+        {
+          "name": "PlayGenericLootAnimation",
+          "parameters": [],
+          "token": "0x6000e80",
+          "offset": 4269300
+        },
+        {
+          "name": "PlayFountainAnimation",
+          "parameters": [],
+          "token": "0x6000e81",
+          "offset": 4269336
+        },
+        {
+          "name": "PrepareForFight",
+          "parameters": [
+            "playTakeWeaponAnimation"
+          ],
+          "token": "0x6000e82",
+          "offset": 4269372
+        },
+        {
+          "name": "RevivePlayer",
+          "parameters": [
+            "reviveConfig",
+            "delay"
+          ],
+          "token": "0x6000e83",
+          "offset": 4269408
+        },
+        {
+          "name": "HandleRevive",
+          "parameters": [
+            "reviveConfig",
+            "delay"
+          ],
+          "token": "0x6000e84",
+          "offset": 4269444
+        },
+        {
+          "name": "UpdatePlayerSequenceIndex",
+          "parameters": [
+            "newSequenceIndex",
+            "isCurrentlyCastingSkill"
+          ],
+          "token": "0x6000e85",
+          "offset": 4269480
+        },
+        {
+          "name": "GoToNextPlayerSequenceIndex",
+          "parameters": [],
+          "token": "0x6000e86",
+          "offset": 4269516
+        },
+        {
+          "name": "GetNextSequenceIndex",
+          "parameters": [],
+          "token": "0x6000e87",
+          "offset": 4269552
+        },
+        {
+          "name": "SwapPlayerAnimator",
+          "parameters": [
+            "animator"
+          ],
+          "token": "0x6000e88",
+          "offset": 4269588
+        },
+        {
+          "name": "SwapPlayerAnimator",
+          "parameters": [
+            "character",
+            "playAnimation"
+          ],
+          "token": "0x6000e89",
+          "offset": 4269624
+        },
+        {
+          "name": "ResetPlayerAnimator",
+          "parameters": [
+            "playAnimation"
+          ],
+          "token": "0x6000e8a",
+          "offset": 4269660
+        }
+      ]
+    },
+    {
+      "id": "EW-TYPE-2380",
+      "name": "Run.Fighters.Player.Ui.Inputs.PlayerCharacterSkillCooldownUiHandler",
+      "type_index": 2380,
+      "offset": 12215812,
+      "token": "0x20002b0",
+      "kind": "type",
+      "also_in_addressables_link_xml": true,
+      "fields": [
+        {
+          "name": "_characterSkillCooldownTimerCircle",
+          "token": "0x4000b86",
+          "offset": 10134128
+        },
+        {
+          "name": "_characterSkillCooldownTimerContour",
+          "token": "0x4000b87",
+          "offset": 10134140
+        },
+        {
+          "name": "_chargesParent",
+          "token": "0x4000b88",
+          "offset": 10134152
+        },
+        {
+          "name": "_chargesTimerCircle",
+          "token": "0x4000b89",
+          "offset": 10134164
+        },
+        {
+          "name": "_chargesText",
+          "token": "0x4000b8a",
+          "offset": 10134176
+        },
+        {
+          "name": "_hasHadMoreThanOneCharge",
+          "token": "0x4000b8b",
+          "offset": 10134188
+        }
+      ],
+      "properties": [],
+      "methods": [
+        {
+          "name": "OnEnable",
+          "parameters": [],
+          "token": "0x6000ffb",
+          "offset": 4282944
+        },
+        {
+          "name": "UpdateCooldown",
+          "parameters": [
+            "maxCharges",
+            "currentCharges",
+            "cooldown",
+            "currentCooldown"
+          ],
+          "token": "0x6000ffc",
+          "offset": 4282980
+        }
+      ]
+    },
+    {
+      "id": "EW-TYPE-2396",
+      "name": "Run.Fighters.Player.PlayerSequence.PlayerSequenceHandler",
+      "type_index": 2396,
+      "offset": 12217220,
+      "token": "0x20002bc",
+      "kind": "type",
+      "also_in_addressables_link_xml": false,
+      "fields": [
+        {
+          "name": "<Skills>k__BackingField",
+          "token": "0x4000bc5",
+          "offset": 10134884
+        },
+        {
+          "name": "<PassiveSlots>k__BackingField",
+          "token": "0x4000bc6",
+          "offset": 10134896
+        },
+        {
+          "name": "<BiElemSlot>k__BackingField",
+          "token": "0x4000bc7",
+          "offset": 10134908
+        },
+        {
+          "name": "<IsLoaded>k__BackingField",
+          "token": "0x4000bc8",
+          "offset": 10134920
+        },
+        {
+          "name": "<RecentlyDiscardedSkills>k__BackingField",
+          "token": "0x4000bc9",
+          "offset": 10134932
+        },
+        {
+          "name": "_player",
+          "token": "0x4000bca",
+          "offset": 10134944
+        },
+        {
+          "name": "_sequenceElementsParent",
+          "token": "0x4000bcb",
+          "offset": 10134956
+        }
+      ],
+      "properties": [
+        {
+          "name": "Skills",
+          "token": "0x1700035c",
+          "offset": 3277084
+        },
+        {
+          "name": "PassiveSlots",
+          "token": "0x1700035d",
+          "offset": 3277104
+        },
+        {
+          "name": "BiElemSlot",
+          "token": "0x1700035e",
+          "offset": 3277124
+        },
+        {
+          "name": "IsLoaded",
+          "token": "0x1700035f",
+          "offset": 3277144
+        },
+        {
+          "name": "RecentlyDiscardedSkills",
+          "token": "0x17000360",
+          "offset": 3277164
+        }
+      ],
+      "methods": [
+        {
+          "name": "InitializeFromConfig",
+          "parameters": [
+            "config"
+          ],
+          "token": "0x600104a",
+          "offset": 4285788
+        },
+        {
+          "name": "InitializeFromSavedState",
+          "parameters": [
+            "savedState"
+          ],
+          "token": "0x600104b",
+          "offset": 4285824
+        },
+        {
+          "name": "ClearSequence",
+          "parameters": [],
+          "token": "0x600104c",
+          "offset": 4285860
+        },
+        {
+          "name": "AddSkillSlot",
+          "parameters": [],
+          "token": "0x600104d",
+          "offset": 4285896
+        },
+        {
+          "name": "AddAffixSlot",
+          "parameters": [
+            "skillIndex"
+          ],
+          "token": "0x600104e",
+          "offset": 4285932
+        },
+        {
+          "name": "EquipSkill",
+          "parameters": [
+            "skillIndex",
+            "skillContext"
+          ],
+          "token": "0x600104f",
+          "offset": 4285968
+        },
+        {
+          "name": "UnequipSkill",
+          "parameters": [
+            "skillIndex",
+            "destroyGameObject"
+          ],
+          "token": "0x6001050",
+          "offset": 4286004
+        },
+        {
+          "name": "UnequipBiElemSkill",
+          "parameters": [
+            "destroyGameObject"
+          ],
+          "token": "0x6001051",
+          "offset": 4286040
+        },
+        {
+          "name": "EquipAffix",
+          "parameters": [
+            "skillIndex",
+            "affixIndex",
+            "affixContext"
+          ],
+          "token": "0x6001052",
+          "offset": 4286076
+        },
+        {
+          "name": "ApplyAffixEffectsToSkill",
+          "parameters": [
+            "affixContext",
+            "skillIndex"
+          ],
+          "token": "0x6001053",
+          "offset": 4286112
+        },
+        {
+          "name": "UnequipAffix",
+          "parameters": [
+            "skillIndex",
+            "affixIndex",
+            "destroyGameObject"
+          ],
+          "token": "0x6001054",
+          "offset": 4286148
+        },
+        {
+          "name": "RemoveAffixEffectsFromSkill",
+          "parameters": [
+            "skillIndex",
+            "affix"
+          ],
+          "token": "0x6001055",
+          "offset": 4286184
+        },
+        {
+          "name": "ApplyPassive",
+          "parameters": [
+            "index",
+            "passive"
+          ],
+          "token": "0x6001056",
+          "offset": 4286220
+        },
+        {
+          "name": "ApplyPassiveInFirstFreeSlot",
+          "parameters": [
+            "passive"
+          ],
+          "token": "0x6001057",
+          "offset": 4286256
+        },
+        {
+          "name": "EquipBiElem",
+          "parameters": [
+            "biElemConfig"
+          ],
+          "token": "0x6001058",
+          "offset": 4286292
+        },
+        {
+          "name": "EquipBiElem",
+          "parameters": [
+            "biElemContext"
+          ],
+          "token": "0x6001059",
+          "offset": 4286328
+        },
+        {
+          "name": "RemovePassives",
+          "parameters": [],
+          "token": "0x600105a",
+          "offset": 4286364
+        },
+        {
+          "name": "RemovePassive",
+          "parameters": [
+            "index"
+          ],
+          "token": "0x600105b",
+          "offset": 4286400
+        },
+        {
+          "name": "UpdateSkillLevel",
+          "parameters": [
+            "skillIndex"
+          ],
+          "token": "0x600105c",
+          "offset": 4286436
+        },
+        {
+          "name": "UpdateAffixLevel",
+          "parameters": [
+            "skillIndex",
+            "affixIndex"
+          ],
+          "token": "0x600105d",
+          "offset": 4286472
+        },
+        {
+          "name": "GetEquippedSkills",
+          "parameters": [],
+          "token": "0x600105e",
+          "offset": 4286508
+        },
+        {
+          "name": "GetEquippedAffixes",
+          "parameters": [],
+          "token": "0x600105f",
+          "offset": 4286544
+        },
+        {
+          "name": "GetEquippedAffixesIds",
+          "parameters": [],
+          "token": "0x6001060",
+          "offset": 4286580
+        },
+        {
+          "name": "GetSequenceCopy",
+          "parameters": [],
+          "token": "0x6001061",
+          "offset": 4286616
+        },
+        {
+          "name": "WriteSequenceInFirebaseKey",
+          "parameters": [],
+          "token": "0x6001062",
+          "offset": 4286652
+        },
+        {
+          "name": "ToSerializable",
+          "parameters": [],
+          "token": "0x6001063",
+          "offset": 4286688
+        },
+        {
+          "name": "OnCurrentSequenceIndexUpdated",
+          "parameters": [
+            "oldSequenceIndex",
+            "newSequenceIndex"
+          ],
+          "token": "0x6001064",
+          "offset": 4286724
+        }
+      ]
+    },
+    {
+      "id": "EW-TYPE-2400",
+      "name": "Run.Fighters.Player.PlayerSequence.RandomizedPlayerSequenceHandler",
+      "type_index": 2400,
+      "offset": 12217572,
+      "token": "0x20002c1",
+      "kind": "type",
+      "also_in_addressables_link_xml": false,
+      "fields": [
+        {
+          "name": "<RandomSkillContexts>k__BackingField",
+          "token": "0x4000be1",
+          "offset": 10135220
+        }
+      ],
+      "properties": [
+        {
+          "name": "RandomSkillContexts",
+          "token": "0x17000361",
+          "offset": 3277184
+        }
+      ],
+      "methods": [
+        {
+          "name": "InitializeFromConfig",
+          "parameters": [
+            "config"
+          ],
+          "token": "0x6001080",
+          "offset": 4287732
+        },
+        {
+          "name": "InitializeFromSavedState",
+          "parameters": [
+            "savedState"
+          ],
+          "token": "0x6001081",
+          "offset": 4287768
+        },
+        {
+          "name": "ClearSequence",
+          "parameters": [],
+          "token": "0x6001082",
+          "offset": 4287804
+        },
+        {
+          "name": "ApplyAffixEffectsToSkill",
+          "parameters": [
+            "affixContext",
+            "skillIndex"
+          ],
+          "token": "0x6001083",
+          "offset": 4287840
+        },
+        {
+          "name": "RemoveAffixEffectsFromSkill",
+          "parameters": [
+            "skillIndex",
+            "affix"
+          ],
+          "token": "0x6001084",
+          "offset": 4287876
+        },
+        {
+          "name": "GenerateSkillContextsForSlots",
+          "parameters": [],
+          "token": "0x6001085",
+          "offset": 4287912
+        },
+        {
+          "name": "OnCurrentSequenceIndexUpdated",
+          "parameters": [
+            "oldSequenceIndex",
+            "newSequenceIndex"
+          ],
+          "token": "0x6001086",
+          "offset": 4287948
+        },
+        {
+          "name": "EquipRandomSkillInSlot",
+          "parameters": [
+            "slotIndex"
+          ],
+          "token": "0x6001087",
+          "offset": 4287984
+        }
+      ]
+    },
+    {
+      "id": "EW-TYPE-2465",
+      "name": "Run.Fighters.Enemies.EventActionType",
+      "type_index": 2465,
+      "offset": 12223292,
+      "token": "0x2000305",
+      "kind": "enum",
+      "also_in_addressables_link_xml": false,
+      "fields": [
+        {
+          "name": "value__",
+          "token": "0x4000d7c",
+          "offset": 10140152
+        },
+        {
+          "name": "SummonEnemies",
+          "token": "0x4000d7d",
+          "offset": 10140164
+        },
+        {
+          "name": "RestrictSkills",
+          "token": "0x4000d7e",
+          "offset": 10140176
+        },
+        {
+          "name": "EndFight",
+          "token": "0x4000d7f",
+          "offset": 10140188
+        },
+        {
+          "name": "PlayAnimation",
+          "token": "0x4000d80",
+          "offset": 10140200
+        },
+        {
+          "name": "MoveToWaypoint",
+          "token": "0x4000d81",
+          "offset": 10140212
+        },
+        {
+          "name": "CastLiteSkill",
+          "token": "0x4000d82",
+          "offset": 10140224
+        },
+        {
+          "name": "ToggleBossToCameraTarget",
+          "token": "0x4000d83",
+          "offset": 10140236
+        },
+        {
+          "name": "GoToPhase",
+          "token": "0x4000d84",
+          "offset": 10140248
+        },
+        {
+          "name": "ToggleImmunities",
+          "token": "0x4000d85",
+          "offset": 10140260
+        },
+        {
+          "name": "UpdateMusicParameter",
+          "token": "0x4000d86",
+          "offset": 10140272
+        },
+        {
+          "name": "ToggleSoundEvent",
+          "token": "0x4000d87",
+          "offset": 10140284
+        },
+        {
+          "name": "AddOrRemovePhasesToRandomPool",
+          "token": "0x4000d88",
+          "offset": 10140296
+        },
+        {
+          "name": "SetSkillRemainingCooldown",
+          "token": "0x4000d89",
+          "offset": 10140308
+        },
+        {
+          "name": "AddEnemyToPool",
+          "token": "0x4000d8a",
+          "offset": 10140320
+        },
+        {
+          "name": "ApplyOrRemoveStatus",
+          "token": "0x4000d8b",
+          "offset": 10140332
+        },
+        {
+          "name": "CastSkill",
+          "token": "0x4000d8c",
+          "offset": 10140344
+        },
+        {
+          "name": "SetSprintState",
+          "token": "0x4000d8d",
+          "offset": 10140356
+        },
+        {
+          "name": "ToggleTimer",
+          "token": "0x4000d8e",
+          "offset": 10140368
+        }
+      ],
+      "properties": [],
+      "methods": []
+    },
+    {
+      "id": "EW-TYPE-2485",
+      "name": "Run.Fighters.Enemies.AI.EnemySkillData",
+      "type_index": 2485,
+      "offset": 12225052,
+      "token": "0x2000319",
+      "kind": "type",
+      "also_in_addressables_link_xml": true,
+      "fields": [
+        {
+          "name": "Skill",
+          "token": "0x4000de6",
+          "offset": 10141424
+        },
+        {
+          "name": "DelayAfterCast",
+          "token": "0x4000de7",
+          "offset": 10141436
+        },
+        {
+          "name": "_castMultipleTimes",
+          "token": "0x4000de8",
+          "offset": 10141448
+        },
+        {
+          "name": "_castAmount",
+          "token": "0x4000de9",
+          "offset": 10141460
+        },
+        {
+          "name": "School",
+          "token": "0x4000dea",
+          "offset": 10141472
+        },
+        {
+          "name": "MinCooldown",
+          "token": "0x4000deb",
+          "offset": 10141484
+        },
+        {
+          "name": "MaxCooldown",
+          "token": "0x4000dec",
+          "offset": 10141496
+        },
+        {
+          "name": "PreventCooldownReduction",
+          "token": "0x4000ded",
+          "offset": 10141508
+        },
+        {
+          "name": "HasGlobalCooldown",
+          "token": "0x4000dee",
+          "offset": 10141520
+        },
+        {
+          "name": "SameCooldownIfInterrupted",
+          "token": "0x4000def",
+          "offset": 10141532
+        },
+        {
+          "name": "<CurrentCooldown>k__BackingField",
+          "token": "0x4000df0",
+          "offset": 10141544
+        },
+        {
+          "name": "<CooldownStart>k__BackingField",
+          "token": "0x4000df1",
+          "offset": 10141556
+        }
+      ],
+      "properties": [
+        {
+          "name": "CurrentCooldown",
+          "token": "0x17000446",
+          "offset": 3281764
+        },
+        {
+          "name": "CooldownStart",
+          "token": "0x17000447",
+          "offset": 3281784
+        },
+        {
+          "name": "CastMultipleTimes",
+          "token": "0x17000448",
+          "offset": 3281804
+        },
+        {
+          "name": "CastAmount",
+          "token": "0x17000449",
+          "offset": 3281824
+        }
+      ],
+      "methods": []
+    },
+    {
+      "id": "EW-TYPE-2492",
+      "name": "Run.Fighters.Enemies.AI.EnemySkillsHandler",
+      "type_index": 2492,
+      "offset": 12225668,
+      "token": "0x200031a",
+      "kind": "type",
+      "also_in_addressables_link_xml": true,
+      "fields": [
+        {
+          "name": "MinStartCooldown",
+          "token": "0x4000df2",
+          "offset": 10141568
+        },
+        {
+          "name": "MaxStartCooldown",
+          "token": "0x4000df3",
+          "offset": 10141580
+        },
+        {
+          "name": "GlobalCooldown",
+          "token": "0x4000df4",
+          "offset": 10141592
+        },
+        {
+          "name": "SkillsData",
+          "token": "0x4000df5",
+          "offset": 10141604
+        },
+        {
+          "name": "_usableSkillsData",
+          "token": "0x4000df6",
+          "offset": 10141616
+        },
+        {
+          "name": "_enemy",
+          "token": "0x4000df7",
+          "offset": 10141628
+        },
+        {
+          "name": "_player",
+          "token": "0x4000df8",
+          "offset": 10141640
+        },
+        {
+          "name": "<CooldownReduction>k__BackingField",
+          "token": "0x4000df9",
+          "offset": 10141652
+        }
+      ],
+      "properties": [
+        {
+          "name": "CooldownReduction",
+          "token": "0x1700044a",
+          "offset": 3281844
+        }
+      ],
+      "methods": [
+        {
+          "name": "Start",
+          "parameters": [],
+          "token": "0x6001295",
+          "offset": 4306920
+        },
+        {
+          "name": "GetSkillData",
+          "parameters": [
+            "skill"
+          ],
+          "token": "0x6001296",
+          "offset": 4306956
+        },
+        {
+          "name": "RestrictSkillsBySchools",
+          "parameters": [
+            "schools"
+          ],
+          "token": "0x6001297",
+          "offset": 4306992
+        },
+        {
+          "name": "MakeAllSkillsUsable",
+          "parameters": [],
+          "token": "0x6001298",
+          "offset": 4307028
+        },
+        {
+          "name": "SelectClosestInRangeUsableSkill",
+          "parameters": [],
+          "token": "0x6001299",
+          "offset": 4307064
+        },
+        {
+          "name": "SetSkillsCooldown",
+          "parameters": [
+            "schools",
+            "cooldown"
+          ],
+          "token": "0x600129a",
+          "offset": 4307100
+        },
+        {
+          "name": "SelectLowestCdUsableSkill",
+          "parameters": [],
+          "token": "0x600129b",
+          "offset": 4307136
+        },
+        {
+          "name": "SelectReadyUsableSkill",
+          "parameters": [],
+          "token": "0x600129c",
+          "offset": 4307172
+        },
+        {
+          "name": "SelectInRangeUsableSkill",
+          "parameters": [],
+          "token": "0x600129d",
+          "offset": 4307208
+        },
+        {
+          "name": "StartCooldown",
+          "parameters": [
+            "skill",
+            "interrupted"
+          ],
+          "token": "0x600129e",
+          "offset": 4307244
+        }
+      ]
+    },
+    {
+      "id": "EW-TYPE-2946",
+      "name": "Run.CombatEffectsAppliers.BiElem.BiElemConfig",
+      "type_index": 2946,
+      "offset": 12265620,
+      "token": "0x20004e6",
+      "kind": "type",
+      "also_in_addressables_link_xml": true,
+      "fields": [
+        {
+          "name": "_icon",
+          "token": "0x40016d8",
+          "offset": 10168904
+        },
+        {
+          "name": "_analyticsName",
+          "token": "0x40016d9",
+          "offset": 10168916
+        },
+        {
+          "name": "_schools",
+          "token": "0x40016da",
+          "offset": 10168928
+        },
+        {
+          "name": "_biElemPrefab",
+          "token": "0x40016db",
+          "offset": 10168940
+        },
+        {
+          "name": "_name",
+          "token": "0x40016dc",
+          "offset": 10168952
+        },
+        {
+          "name": "_description",
+          "token": "0x40016dd",
+          "offset": 10168964
+        },
+        {
+          "name": "_skillCharges",
+          "token": "0x40016de",
+          "offset": 10168976
+        },
+        {
+          "name": "_skillCooldown",
+          "token": "0x40016df",
+          "offset": 10168988
+        }
+      ],
+      "properties": [
+        {
+          "name": "Id",
+          "token": "0x170005f2",
+          "offset": 3290324
+        },
+        {
+          "name": "Icon",
+          "token": "0x170005f3",
+          "offset": 3290344
+        },
+        {
+          "name": "AnalyticsName",
+          "token": "0x170005f4",
+          "offset": 3290364
+        },
+        {
+          "name": "Description",
+          "token": "0x170005f5",
+          "offset": 3290384
+        },
+        {
+          "name": "BiElemPrefab",
+          "token": "0x170005f6",
+          "offset": 3290404
+        },
+        {
+          "name": "Rarity",
+          "token": "0x170005f7",
+          "offset": 3290424
+        },
+        {
+          "name": "SkillCharges",
+          "token": "0x170005f8",
+          "offset": 3290444
+        },
+        {
+          "name": "SkillCooldown",
+          "token": "0x170005f9",
+          "offset": 3290464
+        },
+        {
+          "name": "Schools",
+          "token": "0x170005fa",
+          "offset": 3290484
+        },
+        {
+          "name": "Name",
+          "token": "0x170005fb",
+          "offset": 3290504
+        }
+      ],
+      "methods": [
+        {
+          "name": "GetDescription",
+          "parameters": [
+            "fighter"
+          ],
+          "token": "0x6001a69",
+          "offset": 4379064
+        }
+      ]
+    },
+    {
+      "id": "EW-TYPE-2977",
+      "name": "Run.CombatEffectsAppliers.Affixes.AffixConfig",
+      "type_index": 2977,
+      "offset": 12268348,
+      "token": "0x2000505",
+      "kind": "type",
+      "also_in_addressables_link_xml": true,
+      "fields": [
+        {
+          "name": "_id",
+          "token": "0x4001785",
+          "offset": 10170980
+        },
+        {
+          "name": "_icon",
+          "token": "0x4001786",
+          "offset": 10170992
+        },
+        {
+          "name": "_analyticsName",
+          "token": "0x4001787",
+          "offset": 10171004
+        },
+        {
+          "name": "_affix",
+          "token": "0x4001788",
+          "offset": 10171016
+        },
+        {
+          "name": "_rarity",
+          "token": "0x4001789",
+          "offset": 10171028
+        },
+        {
+          "name": "_school",
+          "token": "0x400178a",
+          "offset": 10171040
+        },
+        {
+          "name": "_name",
+          "token": "0x400178b",
+          "offset": 10171052
+        },
+        {
+          "name": "_description",
+          "token": "0x400178c",
+          "offset": 10171064
+        }
+      ],
+      "properties": [
+        {
+          "name": "Id",
+          "token": "0x17000614",
+          "offset": 3291004
+        },
+        {
+          "name": "Icon",
+          "token": "0x17000615",
+          "offset": 3291024
+        },
+        {
+          "name": "AnalyticsName",
+          "token": "0x17000616",
+          "offset": 3291044
+        },
+        {
+          "name": "Affix",
+          "token": "0x17000617",
+          "offset": 3291064
+        },
+        {
+          "name": "Rarity",
+          "token": "0x17000618",
+          "offset": 3291084
+        },
+        {
+          "name": "School",
+          "token": "0x17000619",
+          "offset": 3291104
+        },
+        {
+          "name": "Name",
+          "token": "0x1700061a",
+          "offset": 3291124
+        },
+        {
+          "name": "NameStringReference",
+          "token": "0x1700061b",
+          "offset": 3291144
+        },
+        {
+          "name": "Description",
+          "token": "0x1700061c",
+          "offset": 3291164
+        },
+        {
+          "name": "DescriptionStringReference",
+          "token": "0x1700061d",
+          "offset": 3291184
+        }
+      ],
+      "methods": [
+        {
+          "name": "InitializeFromTool",
+          "parameters": [
+            "id",
+            "analyticsName",
+            "rarity",
+            "school",
+            "name",
+            "description"
+          ],
+          "token": "0x6001afa",
+          "offset": 4384284
+        },
+        {
+          "name": "Equals",
+          "parameters": [
+            "other"
+          ],
+          "token": "0x6001afb",
+          "offset": 4384320
+        },
+        {
+          "name": "Equals",
+          "parameters": [
+            "obj"
+          ],
+          "token": "0x6001afc",
+          "offset": 4384356
+        },
+        {
+          "name": "GetHashCode",
+          "parameters": [],
+          "token": "0x6001afd",
+          "offset": 4384392
+        },
+        {
+          "name": "op_Equality",
+          "parameters": [
+            "left",
+            "right"
+          ],
+          "token": "0x6001afe",
+          "offset": 4384428
+        },
+        {
+          "name": "op_Inequality",
+          "parameters": [
+            "left",
+            "right"
+          ],
+          "token": "0x6001aff",
+          "offset": 4384464
+        }
+      ]
+    },
+    {
+      "id": "EW-TYPE-2983",
+      "name": "Run.CombatEffectsAppliers.Affixes.AffixCore",
+      "type_index": 2983,
+      "offset": 12268876,
+      "token": "0x2000507",
+      "kind": "type",
+      "also_in_addressables_link_xml": true,
+      "fields": [
+        {
+          "name": "_id",
+          "token": "0x400178f",
+          "offset": 10171100
+        },
+        {
+          "name": "_icon",
+          "token": "0x4001790",
+          "offset": 10171112
+        },
+        {
+          "name": "<Config>k__BackingField",
+          "token": "0x4001791",
+          "offset": 10171124
+        },
+        {
+          "name": "<Context>k__BackingField",
+          "token": "0x4001792",
+          "offset": 10171136
+        },
+        {
+          "name": "_descriptionTokens",
+          "token": "0x4001793",
+          "offset": 10171148
+        },
+        {
+          "name": "_preSkillBehavioursParent",
+          "token": "0x4001794",
+          "offset": 10171160
+        },
+        {
+          "name": "_onHitBehavioursParent",
+          "token": "0x4001795",
+          "offset": 10171172
+        },
+        {
+          "name": "_postSkillBehavioursParent",
+          "token": "0x4001796",
+          "offset": 10171184
+        },
+        {
+          "name": "_affixType",
+          "token": "0x4001797",
+          "offset": 10171196
+        },
+        {
+          "name": "_linkedStatus",
+          "token": "0x4001798",
+          "offset": 10171208
+        },
+        {
+          "name": "_preSkillBehaviours",
+          "token": "0x4001799",
+          "offset": 10171220
+        },
+        {
+          "name": "_onHitBehaviours",
+          "token": "0x400179a",
+          "offset": 10171232
+        },
+        {
+          "name": "_postSkillBehaviours",
+          "token": "0x400179b",
+          "offset": 10171244
+        },
+        {
+          "name": "_onHitCounter",
+          "token": "0x400179c",
+          "offset": 10171256
+        }
+      ],
+      "properties": [
+        {
+          "name": "Id",
+          "token": "0x17000623",
+          "offset": 3291304
+        },
+        {
+          "name": "Rarity",
+          "token": "0x17000624",
+          "offset": 3291324
+        },
+        {
+          "name": "Schools",
+          "token": "0x17000625",
+          "offset": 3291344
+        },
+        {
+          "name": "AffixSchool",
+          "token": "0x17000626",
+          "offset": 3291364
+        },
+        {
+          "name": "AnalyticsName",
+          "token": "0x17000627",
+          "offset": 3291384
+        },
+        {
+          "name": "Name",
+          "token": "0x17000628",
+          "offset": 3291404
+        },
+        {
+          "name": "NameStringReference",
+          "token": "0x17000629",
+          "offset": 3291424
+        },
+        {
+          "name": "Description",
+          "token": "0x1700062a",
+          "offset": 3291444
+        },
+        {
+          "name": "DescriptionStringReference",
+          "token": "0x1700062b",
+          "offset": 3291464
+        },
+        {
+          "name": "Icon",
+          "token": "0x1700062c",
+          "offset": 3291484
+        },
+        {
+          "name": "Config",
+          "token": "0x1700062d",
+          "offset": 3291504
+        },
+        {
+          "name": "Context",
+          "token": "0x1700062e",
+          "offset": 3291524
+        },
+        {
+          "name": "AffixType",
+          "token": "0x1700062f",
+          "offset": 3291544
+        }
+      ],
+      "methods": [
+        {
+          "name": "GetDescription",
+          "parameters": [
+            "fighter"
+          ],
+          "token": "0x6001b15",
+          "offset": 4385256
+        },
+        {
+          "name": "GetLinkedStatuses",
+          "parameters": [
+            "fighter"
+          ],
+          "token": "0x6001b1d",
+          "offset": 4385544
+        },
+        {
+          "name": "Awake",
+          "parameters": [],
+          "token": "0x6001b1e",
+          "offset": 4385580
+        },
+        {
+          "name": "PreSkillStartBehaviour",
+          "parameters": [
+            "caster",
+            "target",
+            "skillOrigin"
+          ],
+          "token": "0x6001b1f",
+          "offset": 4385616
+        },
+        {
+          "name": "OnSkillHitBehaviour",
+          "parameters": [
+            "caster",
+            "target",
+            "hitDescription",
+            "skillOrigin"
+          ],
+          "token": "0x6001b20",
+          "offset": 4385652
+        },
+        {
+          "name": "PostSkillEndBehaviour",
+          "parameters": [
+            "caster",
+            "skillOrigin"
+          ],
+          "token": "0x6001b21",
+          "offset": 4385688
+        }
+      ]
+    },
+    {
+      "id": "EW-TYPE-3065",
+      "name": "Progression.UpgradableElements.Affixes.AffixesAndUpgradesBySchool",
+      "type_index": 3065,
+      "offset": 12276092,
+      "token": "0x200055d",
+      "kind": "type",
+      "also_in_addressables_link_xml": false,
+      "fields": [
+        {
+          "name": "_school",
+          "token": "0x4001932",
+          "offset": 10176128
+        },
+        {
+          "name": "_affixes",
+          "token": "0x4001933",
+          "offset": 10176140
+        },
+        {
+          "name": "_techTreeConfig",
+          "token": "0x4001934",
+          "offset": 10176152
+        }
+      ],
+      "properties": [
+        {
+          "name": "School",
+          "token": "0x170006c9",
+          "offset": 3294624
+        },
+        {
+          "name": "Affixes",
+          "token": "0x170006ca",
+          "offset": 3294644
+        },
+        {
+          "name": "TechTreeConfig",
+          "token": "0x170006cb",
+          "offset": 3294664
+        }
+      ],
+      "methods": []
+    },
+    {
+      "id": "EW-TYPE-3661",
+      "name": "Menu.RunMenu.SequenceSelection.AffixSlotUiHandler",
+      "type_index": 3661,
+      "offset": 12328540,
+      "token": "0x20007b0",
+      "kind": "type",
+      "also_in_addressables_link_xml": true,
+      "fields": [
+        {
+          "name": "_button",
+          "token": "0x40022ac",
+          "offset": 10205240
+        },
+        {
+          "name": "_emptyBackground",
+          "token": "0x40022ad",
+          "offset": 10205252
+        },
+        {
+          "name": "_filledBackground",
+          "token": "0x40022ae",
+          "offset": 10205264
+        },
+        {
+          "name": "_affixIcon",
+          "token": "0x40022af",
+          "offset": 10205276
+        },
+        {
+          "name": "_particlesParent",
+          "token": "0x40022b0",
+          "offset": 10205288
+        },
+        {
+          "name": "_checkmarkParent",
+          "token": "0x40022b1",
+          "offset": 10205300
+        },
+        {
+          "name": "_upgradedSlotIcon",
+          "token": "0x40022b2",
+          "offset": 10205312
+        },
+        {
+          "name": "_affixIndex",
+          "token": "0x40022b3",
+          "offset": 10205324
+        },
+        {
+          "name": "_skillIndex",
+          "token": "0x40022b4",
+          "offset": 10205336
+        },
+        {
+          "name": "_clickCallback",
+          "token": "0x40022b5",
+          "offset": 10205348
+        },
+        {
+          "name": "<AffixContext>k__BackingField",
+          "token": "0x40022b6",
+          "offset": 10205360
+        }
+      ],
+      "properties": [
+        {
+          "name": "AffixContext",
+          "token": "0x17000a68",
+          "offset": 3313164
+        },
+        {
+          "name": "Button",
+          "token": "0x17000a69",
+          "offset": 3313184
+        }
+      ],
+      "methods": [
+        {
+          "name": "Initialize",
+          "parameters": [
+            "skillIndex",
+            "affixIndex",
+            "clickCallback"
+          ],
+          "token": "0x6002ac4",
+          "offset": 4529796
+        },
+        {
+          "name": "SetAffix",
+          "parameters": [
+            "affixContext"
+          ],
+          "token": "0x6002ac5",
+          "offset": 4529832
+        },
+        {
+          "name": "OnClick",
+          "parameters": [],
+          "token": "0x6002ac6",
+          "offset": 4529868
+        },
+        {
+          "name": "OnHoldLongPress",
+          "parameters": [],
+          "token": "0x6002ac7",
+          "offset": 4529904
+        },
+        {
+          "name": "OnReleaseLongPress",
+          "parameters": [],
+          "token": "0x6002ac8",
+          "offset": 4529940
+        },
+        {
+          "name": "ShowParticles",
+          "parameters": [
+            "showParticles"
+          ],
+          "token": "0x6002ac9",
+          "offset": 4529976
+        },
+        {
+          "name": "ShowCheckmark",
+          "parameters": [
+            "toggle"
+          ],
+          "token": "0x6002aca",
+          "offset": 4530012
+        },
+        {
+          "name": "PlaySocketAnimation",
+          "parameters": [],
+          "token": "0x6002acb",
+          "offset": 4530048
+        }
+      ]
+    },
+    {
+      "id": "EW-TYPE-3664",
+      "name": "Menu.RunMenu.SequenceSelection.BiElemSlotUiHandler",
+      "type_index": 3664,
+      "offset": 12328804,
+      "token": "0x20007b4",
+      "kind": "type",
+      "also_in_addressables_link_xml": true,
+      "fields": [
+        {
+          "name": "_emptyBackground",
+          "token": "0x40022bf",
+          "offset": 10205468
+        },
+        {
+          "name": "_filledBackground",
+          "token": "0x40022c0",
+          "offset": 10205480
+        },
+        {
+          "name": "_biElemIcon",
+          "token": "0x40022c1",
+          "offset": 10205492
+        },
+        {
+          "name": "_checkmarkParent",
+          "token": "0x40022c2",
+          "offset": 10205504
+        },
+        {
+          "name": "_particlesParent",
+          "token": "0x40022c3",
+          "offset": 10205516
+        },
+        {
+          "name": "_biElemContext",
+          "token": "0x40022c4",
+          "offset": 10205528
+        },
+        {
+          "name": "_onBiElemSelected",
+          "token": "0x40022c5",
+          "offset": 10205540
+        },
+        {
+          "name": "_index",
+          "token": "0x40022c6",
+          "offset": 10205552
+        }
+      ],
+      "properties": [
+        {
+          "name": "BiElemContext",
+          "token": "0x17000a6c",
+          "offset": 3313244
+        }
+      ],
+      "methods": [
+        {
+          "name": "Initialize",
+          "parameters": [
+            "index",
+            "onBiElemSelected"
+          ],
+          "token": "0x6002ad9",
+          "offset": 4530552
+        },
+        {
+          "name": "EquipBiElem",
+          "parameters": [
+            "biElem"
+          ],
+          "token": "0x6002ada",
+          "offset": 4530588
+        },
+        {
+          "name": "UnequipBiElem",
+          "parameters": [],
+          "token": "0x6002adb",
+          "offset": 4530624
+        },
+        {
+          "name": "OnBiElemClicked",
+          "parameters": [],
+          "token": "0x6002adc",
+          "offset": 4530660
+        },
+        {
+          "name": "ShowCheckmark",
+          "parameters": [
+            "toggle"
+          ],
+          "token": "0x6002add",
+          "offset": 4530696
+        },
+        {
+          "name": "ShowParticles",
+          "parameters": [
+            "showParticles"
+          ],
+          "token": "0x6002ade",
+          "offset": 4530732
+        }
+      ]
+    }
+  ],
+  "seed_symbol_classifications": [
+    {
+      "symbol": "BufferActionIfRelevant",
+      "kind": "method",
+      "owner": "Run.Fighters.Player.PlayerEntity",
+      "offset": 4269120,
+      "evidence": "EW-TYPE-2340"
+    },
+    {
+      "symbol": "_timeToBufferAction",
+      "kind": "field",
+      "owner": "Run.Fighters.Player.PlayerEntity",
+      "offset": 10130672,
+      "evidence": "EW-TYPE-2340"
+    },
+    {
+      "symbol": "RefreshCharacterSkillCooldownAndCharges",
+      "kind": "method",
+      "owner": "Run.Fighters.Player.PlayerEntity",
+      "offset": 4267716,
+      "evidence": "EW-TYPE-2340"
+    },
+    {
+      "symbol": "SetSkillRemainingCooldown",
+      "kind": "enum member",
+      "owner": "Run.Fighters.Enemies.EventActionType",
+      "offset": 10140308,
+      "evidence": "EW-TYPE-2465"
+    },
+    {
+      "symbol": "AffixSchool",
+      "kind": "property",
+      "owner": "Run.CombatEffectsAppliers.Affixes.AffixCore",
+      "offset": 3291364,
+      "evidence": "EW-TYPE-2983"
+    },
+    {
+      "symbol": "AffixesAndUpgradesBySchool",
+      "kind": "type",
+      "owner": "Progression.UpgradableElements.Affixes.AffixesAndUpgradesBySchool",
+      "offset": 12276092,
+      "evidence": "EW-TYPE-3065"
+    },
+    {
+      "symbol": "BiElemSynergy",
+      "kind": "enum member",
+      "owner": "Run.RunGeneration.RoomRewards.RewardSchool",
+      "offset": 10118384,
+      "evidence": "EW-TYPE-2093"
+    }
+  ],
+  "limits": [
+    "Declarations prove ownership and names, not method execution or call order.",
+    "Field runtime types and serialized values are not resolved.",
+    "No original executable, art, audio or method implementation included."
+  ]
+}
